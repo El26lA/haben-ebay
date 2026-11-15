@@ -1,0 +1,59 @@
+{
+  "_hinweis": "Erfundene Daten (Rufnummer aus dem von der Bundesnetzagentur für Medien reservierten Bereich 030 23125) im Aufbau der eBay-APIs (Fulfillment getOrders, Finances getTransactions). payments.amount und paymentSummary.refunds.amount sind wie bei eBay Beträge nach Abzug der Gebühren.",
+  "orders": [
+    {
+      "orderId": "12-34567-89012",
+      "creationDate": "2025-03-10T09:12:00.000Z",
+      "lastModifiedDate": "2025-03-11T14:00:00.000Z",
+      "orderPaymentStatus": "PAID",
+      "orderFulfillmentStatus": "FULFILLED",
+      "cancelStatus": {"cancelState": "NONE_REQUESTED"},
+      "buyer": {
+        "username": "kaeufer_x",
+        "buyerRegistrationAddress": {
+          "fullName": "Erika Muster",
+          "email": "abc123@members.ebay.com",
+          "primaryPhone": {"phoneNumber": "03023125456"},
+          "contactAddress": {"addressLine1": "Weg 1", "postalCode": "12345", "city": "Musterstadt", "countryCode": "DE"}
+        }
+      },
+      "fulfillmentStartInstructions": [
+        {"shippingStep": {"shipTo": {"fullName": "Erika Muster", "contactAddress": {"addressLine1": "Weg 1", "postalCode": "12345", "city": "Musterstadt", "countryCode": "DE"}}}}
+      ],
+      "fulfillmentHrefs": ["https://api.ebay.com/sell/fulfillment/v1/order/12-34567-89012/shipping_fulfillment/1"],
+      "_sendungen": [
+        {"fulfillmentId": "1", "shipmentTrackingNumber": "00340434161234567890", "shippingCarrierCode": "DHL", "shippedDate": "2025-03-11T14:00:00.000Z"}
+      ],
+      "pricingSummary": {
+        "priceSubtotal": {"value": "50.00", "currency": "EUR"},
+        "deliveryCost": {"value": "4.90", "currency": "EUR"},
+        "total": {"value": "54.90", "currency": "EUR"}
+      },
+      "totalMarketplaceFee": {"value": "6.73", "currency": "EUR"},
+      "paymentSummary": {
+        "totalDueSeller": {"value": "48.17", "currency": "EUR"},
+        "payments": [
+          {"paymentMethod": "EBAY", "paymentReferenceId": "000000_X", "paymentDate": "2025-03-10T09:13:00.000Z", "amount": {"value": "48.17", "currency": "EUR"}, "paymentStatus": "PAID"}
+        ],
+        "refunds": []
+      },
+      "lineItems": [
+        {"lineItemId": "1", "legacyItemId": "1234567890", "title": "Netzteil 24 V", "quantity": 2, "lineItemCost": {"value": "50.00", "currency": "EUR"}, "appliedPromotions": [], "taxes": []}
+      ]
+    }
+  ],
+  "transactions": [
+    {"transactionId": "t1", "transactionType": "SALE", "transactionDate": "2025-03-10T09:13:00.000Z", "orderId": "12-34567-89012",
+     "amount": {"value": "48.17", "currency": "EUR"}, "totalFeeAmount": {"value": "6.73", "currency": "EUR"},
+     "totalFeeBasisAmount": {"value": "54.90", "currency": "EUR"}, "bookingEntry": "CREDIT", "payoutId": "p1",
+     "orderLineItems": [{"marketplaceFees": [{"feeType": "FINAL_VALUE_FEE", "amount": {"value": "6.38", "currency": "EUR"}},
+                                             {"feeType": "FINAL_VALUE_FEE_FIXED_PER_ORDER", "amount": {"value": "0.35", "currency": "EUR"}}]}]},
+    {"transactionId": "t2", "transactionType": "NON_SALE_CHARGE", "transactionDate": "2025-03-20T10:00:00.000Z", "feeType": "AD_FEE",
+     "transactionMemo": "Anzeigen März", "amount": {"value": "3.10", "currency": "EUR"}, "bookingEntry": "DEBIT", "payoutId": "p1"},
+    {"transactionId": "t3", "transactionType": "SHIPPING_LABEL", "transactionDate": "2025-04-02T10:00:00.000Z", "orderId": "12-34567-89012",
+     "amount": {"value": "5.49", "currency": "EUR"}, "bookingEntry": "DEBIT", "payoutId": "p2"},
+    {"transactionId": "t4", "transactionType": "REFUND", "transactionDate": "2025-04-05T10:00:00.000Z", "orderId": "12-34567-89012",
+     "amount": {"value": "8.80", "currency": "EUR"}, "totalFeeAmount": {"value": "1.20", "currency": "EUR"}, "bookingEntry": "DEBIT", "payoutId": "p2",
+     "orderLineItems": [{"marketplaceFees": [{"feeType": "FINAL_VALUE_FEE", "amount": {"value": "1.20", "currency": "EUR"}}]}]}
+  ]
+}

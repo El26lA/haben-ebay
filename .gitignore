@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+ebay-daten/
+data/
+*.tmp
+.env

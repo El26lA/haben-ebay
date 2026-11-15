@@ -1,0 +1,31 @@
+# Beispiel: als weiterer Dienst neben Haben (gleiche Compose-Datei bzw. gleiches Netzwerk wie der Dienst „app“).
+# Den Ordner haben_ebay neben diese Datei legen; der Datenordner ./ebay-daten muss dem Benutzer unter „user“ gehören.
+services:
+  ebay:
+    image: python:3.12-alpine
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["python", "-u", "-m", "haben_ebay"]
+    working_dir: /app
+    environment:
+      DATA_DIR: /data
+      PORT: "8080"
+      TZ: Europe/Berlin
+      HABEN_URL: http://app:3000/api/v1
+      HABEN_ADRESSE: https://haben.example.de
+      SEITE_ADRESSE: https://ebay.example.de
+      EBAY_HOOK_URL: https://ebay-hook.example.de/ebay/konto-loeschung
+    volumes:
+      - ./haben_ebay:/app/haben_ebay:ro
+      - ./ebay-daten:/data
+    ports:
+      - "127.0.0.1:8140:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 1m
