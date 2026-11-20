@@ -27,6 +27,7 @@ from .archiv import *  # noqa: F403
 from .bestellung import *  # noqa: F403
 from .ebay import *  # noqa: F403
 from .gebuehren import gebuehren_abgleich
+from .zahlungen import zahlungen_abgleich
 from .mail import lauf_pruefen
 
 
@@ -99,6 +100,11 @@ def abgleich(schreiben: bool = True, beispiel: str | None = None, voll: bool = F
         ergebnis += " · " + gebuehren_abgleich(cfg, schreiben, voll, transaktionen)
     except Fehler as e:
         ergebnis += f" · Gebühren: Fehler: {e}"
+    try:
+        ergebnis += " · " + zahlungen_abgleich(cfg, schreiben, transaktionen, list(archiv["auszahlungen"].values()))
+    except Fehler as e:
+        ergebnis += f" · Zahlungen: Fehler: {e}"
+        log(f"FEHLER Zahlungen: {e}")
         log(f"FEHLER Gebühren: {e}")
     if not beispiel and fehler == 0:
         cfg = lade_config()

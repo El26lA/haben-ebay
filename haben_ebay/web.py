@@ -248,7 +248,10 @@ ab „Nur Bestellungen ab“, falls gesetzt. Gebühren kommen je abgeschlossenem
 </div>
 <h2 style='margin-top:18px'>Haben</h2><div class=row>
 <div><label for=ht>API-Token</label><input id=ht type=password name=haben_token placeholder='{maskiert(cfg['haben_token'])}' autocomplete=new-password>
-<p class=hint>Haben › Einstellungen › KI-Assistenten und API. Rechte: Kontakte schreiben, Rechnungen Entwürfe, Belege anlegen. Leer lassen = unverändert.</p></div>
+<p class=hint>Haben › Einstellungen › KI-Assistenten und API. Rechte: Kontakte schreiben, Rechnungen Entwürfe, Belege anlegen, für die Zahlungen auch Bankumsätze liefern (bank:importieren). Leer lassen = unverändert.</p></div>
+<div><label><input type=checkbox name=zahlungen_an value=1{' checked' if cfg.get('zahlungen_an') else ''}> Zahlungen an Haben liefern</label>
+<label for=zk>Kennung der Quelle</label><input id=zk type=text name=zahlungen_kennung value='{e(cfg.get('zahlungen_kennung') or 'ebay')}'>
+<p class=hint>Haben ab 0.12: Geldbewegungen und Auszahlungen landen als Umsätze im eBay-Konto. Vorher in Haben unter Bank › eBay-Konto › Externe Quelle hinzufügen: Anbieter „haben-ebay“, Kennung wie hier.</p></div>
 <div><label for=hu>API-Adresse</label><input id=hu type=text name=haben_url value='{e(cfg['haben_url'])}'>
 <p class=hint>Im Container: http://app:3000/api/v1</p></div>
 <div><label for=ha>Adresse von Haben</label><input id=ha type=text name=haben_adresse value='{e(cfg['haben_adresse'])}' placeholder='https://haben.example.de'>
@@ -754,6 +757,9 @@ class Handler(BaseHTTPRequestHandler):
                 fehler.append(f"{name} muss mit https:// beginnen")
         if cfg["hook_url"] and not cfg["hook_url"].rstrip("/").endswith(HOOK_PFAD):
             fehler.append(f"Adresse der Meldestelle muss auf {HOOK_PFAD} enden")
+        if "zahlungen_kennung" in f:
+            cfg["zahlungen_an"] = f.get("zahlungen_an") == "1"
+            cfg["zahlungen_kennung"] = f["zahlungen_kennung"].strip() or "ebay"
         for feld in ("haben_token", "ebay_client_secret"):
             if f.get(feld, "").strip():
                 cfg[feld] = f[feld].strip()

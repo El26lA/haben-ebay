@@ -62,6 +62,8 @@ DEFAULTS = {
     "intervall_minuten": 15,
     "rueckblick_tage": 30,
     "nur_ab": "",
+    "zahlungen_an": False,  # Geldbewegungen und Auszahlungen an Haben liefern (REST-Import, Haben ab 0.12)
+    "zahlungen_kennung": "ebay",  # Kennung der Quelle in Haben (externalAccountId)
     "passwort_hash": "",
     "cookie_secure": True,
     # Meldestelle für eBays Marketplace Account Deletion: einzige von außen erreichbare Adresse
