@@ -63,6 +63,7 @@ Der Dienst unterscheidet am Hostnamen: Über den Namen der Meldestelle antwortet
 ## 4. Haben vorbereiten (Nutzer klickt, Agent sagt wo)
 
 - Einstellungen › KI-Assistenten und API: Zugang einschalten, Token anlegen mit **Kontakte lesen, anlegen und ändern**, **Rechnungen lesen, Entwürfe anlegen, ändern und löschen**, **Belege lesen und hochladen**; den Haken bei MCP herausnehmen; Gültigkeit 1 Jahr. Das Token wird nur einmal angezeigt.
+- Für Zahlungen (Haben ab 0.12): Bank › Konto hinzufügen, Art **Zahlungsdienstleister** (nie ein Bankkonto, die Quelle lässt sich nicht entfernen); dort **Externe Quelle hinzufügen** mit Anbieter `haben-ebay`, Kennung `ebay` und Stichtag; dem Token zusätzlich **Bankumsätze in freigegebene Quellen liefern** geben. Auf der Einstellungsseite „Zahlungen an Haben liefern“ erst nach einem Probelauf einschalten (README, „Zahlungen an Haben“).
 - Einstellungen › Eigene Seiten: die Adresse der Einstellungsseite eintragen (Menüpunkt z. B. „eBay“).
 - Einstellungen › Firma: Kleinunternehmer ja/nein merken.
 

@@ -46,6 +46,19 @@ Mit einem KI-Agenten (Claude Code, Codex, Cursor …): Er findet in [AGENTS.md](
 6. **Einstellungsseite:** Token, App ID, Cert ID, RuName, Adressen und **Umsatzsteuer** (wie in Haben) eintragen, speichern, **Mit eBay verbinden**. eBay fragt nach dem Zugriff auf Bestellungen und Finanzdaten.
 7. **Erst prüfen:** „Alles Alte – Probelauf“ schreibt nichts. Dann einen einzelnen Entwurf in Haben ansehen, erst danach „Alles Alte holen“ und **Aktivieren**.
 
+### Zahlungen an Haben (ab Haben 0.12)
+
+Damit die eBay-Zahlungen als Umsätze in Haben ankommen und die Rechnungen dort zugeordnet werden können:
+
+1. **eBay-Konto in Haben anlegen:** Bank › **Konto hinzufügen**, Art **Zahlungsdienstleister**, Anbieter eBay, Name z. B. „eBay“. Kein Bankkonto nehmen: Eine externe Quelle lässt sich in Haben nicht wieder entfernen, und das Konto bekäme dann keinen Bankabruf mehr.
+2. **Quelle freigeben:** Bank › das neue eBay-Konto › **Externe Quelle hinzufügen**. Anbieter `haben-ebay`, Kennung `ebay` (oder was auf der Einstellungsseite unter „Kennung der Quelle“ steht), Stichtag der erste Tag, ab dem Zahlungen kommen sollen, z. B. der Beginn des ältesten Jahres, das noch nicht abgeschlossen ist. Vor dem Stichtag liefert der Dienst nichts.
+3. **Recht für das Token:** Dem Token aus Schritt 5 zusätzlich **Bankumsätze in freigegebene Quellen liefern** (`bank:importieren`) geben. Geht das am vorhandenen Token nicht, ein neues mit allen Rechten anlegen und auf der Einstellungsseite eintragen.
+4. **Einstellungsseite:** Haken bei **Zahlungen an Haben liefern** setzen, speichern und gleich den **Probelauf** starten (bei aktivem Abgleich liefert sonst der nächste Lauf): Im Protokoll steht „Zahlungen: würde … Bewegungen ab … an Haben liefern“. Steht dort, die Quelle sei an einem Konto, das kein Zahlungsdienstleister ist, liefert der Dienst nichts; dann Schritt 1 prüfen.
+5. **Jetzt abgleichen:** Danach stehen die Umsätze im eBay-Konto: je Verkauf der Betrag des Käufers und die Gebühr als eigener Umsatz, dazu Erstattungen, sonstige Gebühren und Auszahlungen. Der Kontostand dort muss dem eBay-Guthaben entsprechen. Spätere Läufe liefern nur, was neu ist.
+6. **Zuordnen in Haben:** Nach dem Festschreiben schlägt Haben zu jedem Verkauf die Rechnung vor (Bestellnummer und Betrag), die Auszahlungen als Geldtransit zum Bankkonto. Bestätigen musst du in Haben selbst.
+
+Meldet Haben einen Konflikt (eine Bewegung kam mit anderem Betrag noch einmal), liefert der Dienst nichts mehr, bis er am eBay-Konto unter **Konflikt klären** gelöst ist.
+
 Für die Finanzdaten verlangt eBay bei Verkäufern in der EU und im Vereinigten Königreich [signierte Anfragen](https://developer.ebay.com/develop/guides/digital-signatures-for-apis). Den Schlüssel legt der Dienst selbst über die Key Management API an (drei Jahre gültig, Erneuerung 30 Tage vorher).
 
 ## Umgebungsvariablen
