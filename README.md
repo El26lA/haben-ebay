@@ -12,13 +12,14 @@ Haben bucht und schreibt fest, dieser Dienst nicht: Er legt nur Entwürfe und Be
 - **Gebühren** über die Finances API (fünf Jahre zurück): je abgeschlossenem Monat ein Eigenbeleg als PDF mit allen Posten (Provision, Fixgebühr, Anzeigen, Versandetiketten, gutgeschriebene Gebühren).
 - **Archiv** aller eBay-Daten im Datenordner, dauerhaft: Bestellungen auch storniert oder erstattet, Sendungen, Geldbewegungen, Auszahlungen. Was eBay später schwärzt (Name, Anschrift nach etwa 90 Tagen), bleibt erhalten. Verlauf mit Suche und Filter, Export als CSV und JSON.
 - **Nachführen:** Kommen Versand- oder Zahlungsdaten später, werden sie in noch nicht festgeschriebene Entwürfe nachgetragen; leere Felder im Kontakt werden ergänzt, nie überschrieben. Wird eine Bestellung nach dem Entwurf storniert oder erstattet, gibt es einen Hinweis und eine Mail; gelöscht wird nichts.
+- **Bereits bezahlt** (Haben ab 0.10): Jeder Entwurf bekommt die Zahlungsart „Bereits bezahlt“ über eBay mit dem Tag der Zahlung; die Rechnung enthält dann keine Bitte um Überweisung und keinen GiroCode.
+- **Zahlungen an Haben** (Haben ab 0.12, abschaltbar): Geldbewegungen und Auszahlungen gehen über den REST-Import (`POST /api/v1/bankimporte`) in ein eBay-Konto des Zahlungsdienstleisters, je Verkauf als Brutto und Gebühr, Auszahlungen als Geldtransit. Dafür in Haben am eBay-Konto die externe Quelle „haben-ebay“ freigeben und dem Token das Recht `bank:importieren` geben. An ein Bankkonto liefert der Dienst nie.
 - **Kontolöschungen:** die von eBay verlangte Meldestelle (Marketplace Account Deletion). Meldungen werden angezeigt und bei bekannten Käufern per Mail gemeldet, aber nie automatisch umgesetzt: Rechnungen unterliegen der Aufbewahrungspflicht.
 - **E-Mail** über SMTP: eBay-Verbindung läuft bald ab, drei Läufe in Folge mit Fehlern, Kontolöschung eines bekannten Käufers.
 
 ## Grenzen
 
-- **Zahlungen:** Haben erkennt eine eBay-Rechnung erst als bezahlt, wenn die Zahlung im Konto des Zahlungsdienstleisters „eBay“ zugeordnet ist. Eine Schnittstelle, über die dieser Dienst die Zahlungen liefern könnte, ist in Haben geplant ([#306](https://github.com/firsttris/haben/issues/306)). Bis dahin bleiben die Rechnungen offen.
-- **Zahlungsaufforderung:** Haben druckt auf jede Rechnung „Bitte überweisen Sie …“ und einen GiroCode, auch wenn über eBay schon bezahlt ist ([#1056](https://github.com/firsttris/haben/issues/1056)). Bis das geht, die Entwürfe nicht festschreiben, wenn das stört.
+- **Zahlungen zuordnen** macht Haben nicht selbst: Die Rechnung bleibt offen, bis die Zahlung im Bankabgleich am eBay-Konto zugeordnet ist. Haben schlägt sie über Bestellnummer und Betrag vor, aber nur an festgeschriebenen Rechnungen, und auf dem Konto eines Zahlungsdienstleisters einzeln.
 - **Der Gebührenbeleg ist ein Eigenbeleg**, keine Rechnung von eBay. Wer regelbesteuert ist, braucht für den Vorsteuerabzug die Gebührenrechnung von eBay.
 - **E-Mail-Adressen** der Käufer gibt eBay nur in den ersten Tagen nach dem Kauf heraus, und nur als Weiterleitung `…@members.ebay.com`. Bei regelmäßigem Abruf ist sie bei neuen Bestellungen dabei, bei alten fehlt sie.
 - Nur Euro.
