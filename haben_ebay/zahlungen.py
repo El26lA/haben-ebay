@@ -129,6 +129,9 @@ def zahlungen_abgleich(cfg: dict, schreiben: bool, transaktionen: list[dict] | N
     quelle = next((q for q in quellen.get("data", []) if q["provider"] == ANBIETER and q["externalAccountId"] == kennung), None)
     if not quelle:
         return f"Zahlungen: In Haben ist keine Quelle „{ANBIETER}“ / „{kennung}“ freigegeben (Bank › eBay-Konto › Externe Quelle hinzufügen)"
+    if quelle.get("accountKind") != "psp":
+        return (f"Zahlungen: Die Quelle ist am Konto „{quelle.get('accountName')}“ freigegeben, das ist kein Konto eines "
+                "Zahlungsdienstleisters. eBay-Zahlungen gehören in ein eigenes eBay-Konto (Bank › Konto hinzufügen › Zahlungsdienstleister).")
     if quelle.get("openConflicts"):
         return "Zahlungen: In Haben ist ein Konflikt offen; bitte unter Bank am eBay-Konto klären"
     stichtag = quelle.get("cutoverDate") or "2000-01-01"
