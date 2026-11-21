@@ -42,6 +42,7 @@ class Ablauf(unittest.TestCase):
         self.assertEqual(entwurf["priceMode"], "brutto")
         self.assertEqual((entwurf["issueDate"], entwurf["serviceFrom"], entwurf["serviceTo"]), ("2025-03-10",) * 3)
         self.assertIn("(54,90 €)", entwurf["note"])
+        self.assertEqual((entwurf["paymentMethod"], entwurf["paidVia"], entwurf["paidOn"]), ("bereits_bezahlt", "eBay", "2025-03-10"))
         belege = self.haben.anfragen("POST", "/belege")
         self.assertEqual(sorted(b[2]["externalId"] for b in belege), ["2025-03", "2025-04"])
         self.assertTrue(all(b[2]["pdf"].startswith(b"%PDF") for b in belege))

@@ -35,6 +35,15 @@ def bestelldatum(order: dict) -> str:
     return t.astimezone().date().isoformat()
 
 
+def bezahlt(order: dict) -> dict:
+    """Zahlungsart „Bereits bezahlt“ über eBay mit dem Tag der ersten Zahlung (Haben ab v0.10.0, #1056)."""
+    p = ((order.get("paymentSummary") or {}).get("payments") or [{}])[0]
+    if not p.get("paymentDate"):
+        return {}
+    t = dt.datetime.fromisoformat(p["paymentDate"].replace("Z", "+00:00"))
+    return {"paymentMethod": "bereits_bezahlt", "paidVia": "eBay", "paidOn": t.astimezone().date().isoformat()}
+
+
 def kontakt_aus_bestellung(order: dict) -> dict:
     ship = {}
     for fsi in order.get("fulfillmentStartInstructions") or []:
@@ -239,7 +248,7 @@ def verarbeite(cfg: dict, order: dict, schreiben: bool, eintrag: dict | None = N
             datum = bestelldatum(order)
             st, antw = haben(cfg, "PATCH", f"/rechnungen/{r['id']}",
                              {"note": notiz, "lines": lines, "priceMode": "brutto", "issueDate": datum,
-                              "serviceFrom": datum, "serviceTo": datum})
+                              "serviceFrom": datum, "serviceTo": datum, **bezahlt(order)})
             haben_ok(st, antw, "Entwurf nachführen")
             eintrag["nachfuehren"] = False
             brutto = (antw or {}).get("gross")
@@ -294,6 +303,7 @@ def verarbeite(cfg: dict, order: dict, schreiben: bool, eintrag: dict | None = N
         "serviceFrom": datum,
         "serviceTo": datum,
         "lines": lines,
+        **bezahlt(order),
     }
     status, rechnung = haben(cfg, "POST", "/rechnungen", entwurf)
     haben_ok(status, rechnung, "Rechnungsentwurf anlegen")
