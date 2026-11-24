@@ -53,6 +53,7 @@ DEFAULTS = {
     "ebay_refresh_token": "",
     "ebay_refresh_bis": 0,
     "ebay_scopes": "",  # mit welchen Rechten verbunden wurde
+    "ebay_scopes_zusatz": "",  # weitere Rechte (durch Leerzeichen getrennt) für Dienste, die diese Verbindung mitnutzen
     "letzter_abruf": "",
     # Signaturschlüssel für die Finances-API (eBay verlangt bei EU-Verkäufern signierte Anfragen, RFC 9421)
     "sign_jwe": "",

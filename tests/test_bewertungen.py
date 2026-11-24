@@ -90,6 +90,12 @@ class TokenMitAltenRechten(unittest.TestCase):
             ebay.ebay_access_token({"ebay_refresh_token": "r-alt", "ebay_scopes": alt})
         self.assertEqual(gesendet["scope"], alt)
 
+    def test_zusaetzliche_rechte_beim_verbinden(self):
+        from haben_ebay import ebay
+        url = ebay.ebay_consent_url({"ebay_client_id": "id", "ebay_runame": "rn", "ebay_scopes_zusatz": "https://api.ebay.com/oauth/api_scope/x"}, "s")
+        self.assertIn("commerce.feedback", url)
+        self.assertIn("api_scope%2Fx", url)
+
 
 if __name__ == "__main__":
     unittest.main()

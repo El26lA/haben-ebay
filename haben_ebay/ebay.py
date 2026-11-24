@@ -58,9 +58,14 @@ def ebay_access_token(cfg: dict) -> str:
     return _access["token"]
 
 
+def gewuenschte_scopes(cfg: dict) -> str:
+    """Eigene Rechte plus „ebay_scopes_zusatz“ aus der Config (für andere Dienste, die diese Verbindung mitnutzen)."""
+    return " ".join(dict.fromkeys((SCOPES + " " + (cfg.get("ebay_scopes_zusatz") or "")).split()))
+
+
 def ebay_consent_url(cfg: dict, state: str) -> str:
     return EBAY_AUTH + "?" + urllib.parse.urlencode(
-        {"client_id": cfg["ebay_client_id"], "redirect_uri": cfg["ebay_runame"], "response_type": "code", "scope": SCOPES, "state": state}
+        {"client_id": cfg["ebay_client_id"], "redirect_uri": cfg["ebay_runame"], "response_type": "code", "scope": gewuenschte_scopes(cfg), "state": state}
     )
 
 
@@ -70,7 +75,7 @@ def ebay_code_einloesen(code: str) -> int:
     if "refresh_token" not in data:
         raise Fehler("eBay hat kein Refresh-Token geliefert")
     cfg["ebay_refresh_token"] = data["refresh_token"]
-    cfg["ebay_scopes"] = SCOPES
+    cfg["ebay_scopes"] = gewuenschte_scopes(cfg)
     cfg["ebay_refresh_bis"] = int(time.time() + int(data.get("refresh_token_expires_in", 47304000)))
     speichere_config(cfg)
     _access.update(token="", bis=0.0)
