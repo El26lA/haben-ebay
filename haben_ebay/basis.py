@@ -32,7 +32,8 @@ EBAY_API = "https://api.ebay.com"
 EBAY_FIN = "https://apiz.ebay.com"
 MARKTPLATZ = "EBAY_DE"
 EBAY_AUTH = "https://auth.ebay.com/oauth2/authorize"
-SCOPES = "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly https://api.ebay.com/oauth/api_scope/sell.finances"
+SCOPES = ("https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly https://api.ebay.com/oauth/api_scope/sell.finances"
+          " https://api.ebay.com/oauth/api_scope/commerce.feedback")
 BESTELL_TAGE_MAX = 729  # getOrders: höchstens zwei Jahre zurück
 GEBUEHR_MONATE_MAX = 59  # getTransactions: höchstens fünf Jahre zurück, je Abfrage höchstens 36 Monate
 QUELLE_GEBUEHR = "ebay-gebuehren"

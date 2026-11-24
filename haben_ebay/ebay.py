@@ -53,7 +53,7 @@ def ebay_access_token(cfg: dict) -> str:
         raise Fehler("eBay-Konto noch nicht verbunden")
     if _access["token"] and _access["refresh"] == cfg["ebay_refresh_token"] and time.time() < _access["bis"] - 120:
         return _access["token"]
-    data = ebay_token_post(cfg, {"grant_type": "refresh_token", "refresh_token": cfg["ebay_refresh_token"], "scope": SCOPES})
+    data = ebay_token_post(cfg, {"grant_type": "refresh_token", "refresh_token": cfg["ebay_refresh_token"], "scope": cfg.get("ebay_scopes") or SCOPES})
     _access.update(token=data["access_token"], bis=time.time() + int(data.get("expires_in", 7200)), refresh=cfg["ebay_refresh_token"])
     return _access["token"]
 

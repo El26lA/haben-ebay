@@ -272,8 +272,8 @@ ab „Nur Bestellungen ab“, falls gesetzt. Gebühren kommen je abgeschlossenem
 
 <form class=card method=post action=/ebay/verbinden>{hidden}<h2>eBay-Konto verbinden</h2>
 <p class=hint>Öffnet eBay in einem neuen Tab. Dort mit dem Verkäuferkonto anmelden und zustimmen. Die Freigabe gilt 18 Monate.
-Rechte: Bestellungen lesen und Finanzdaten (für die Gebühren).</p>
-{'' if not cfg['ebay_refresh_token'] or 'sell.finances' in (cfg.get('ebay_scopes') or '') else '<p class=bad>Für die Gebühren bitte neu verbinden.</p>'}
+Rechte: Bestellungen lesen, Finanzdaten (für die Gebühren) und Bewertungen (Mail bei neutraler oder negativer).</p>
+{'' if not cfg['ebay_refresh_token'] or 'commerce.feedback' in (cfg.get('ebay_scopes') or '') else '<p class=bad>Für die Meldung neutraler und negativer Bewertungen bitte neu verbinden.</p>'}
 <div class=actions><button class=primary {'disabled' if not verbinden_ok else ''}>{'Neu verbinden' if cfg['ebay_refresh_token'] else 'Mit eBay verbinden'}</button>
 {'' if verbinden_ok else '<span class=hint>Erst App ID, Cert ID und RuName speichern.</span>'}</div></form>
 

@@ -15,7 +15,8 @@ Haben bucht und schreibt fest, dieser Dienst nicht: Er legt nur Entwürfe und Be
 - **Bereits bezahlt** (Haben ab 0.10): Jeder Entwurf bekommt die Zahlungsart „Bereits bezahlt“ über eBay mit dem Tag der Zahlung; die Rechnung enthält dann keine Bitte um Überweisung und keinen GiroCode.
 - **Zahlungen an Haben** (Haben ab 0.12, abschaltbar): Geldbewegungen und Auszahlungen gehen über den REST-Import (`POST /api/v1/bankimporte`) in ein eBay-Konto des Zahlungsdienstleisters, je Verkauf als Brutto und Gebühr, Auszahlungen als Geldtransit. Dafür in Haben am eBay-Konto die externe Quelle „haben-ebay“ freigeben und dem Token das Recht `bank:importieren` geben. An ein Bankkonto liefert der Dienst nie.
 - **Kontolöschungen:** die von eBay verlangte Meldestelle (Marketplace Account Deletion). Meldungen werden angezeigt und bei bekannten Käufern per Mail gemeldet, aber nie automatisch umgesetzt: Rechnungen unterliegen der Aufbewahrungspflicht.
-- **E-Mail** über SMTP: eBay-Verbindung läuft bald ab, drei Läufe in Folge mit Fehlern, Kontolöschung eines bekannten Käufers.
+- **Bewertungen** über die Feedback API: Jede neue neutrale oder negative Bewertung wird beim nächsten Lauf (alle 15 Minuten) per Mail gemeldet, mit Kommentar, Artikel, Bestellung und Käufer, und für immer im Datenordner gespeichert. Beim ersten Lauf werden die vorhandenen nur übernommen, ohne Mail. Braucht das Recht `commerce.feedback` (nach einem Update einmal „Neu verbinden“).
+- **E-Mail** über SMTP: eBay-Verbindung läuft bald ab, drei Läufe in Folge mit Fehlern, Kontolöschung eines bekannten Käufers, neutrale oder negative Bewertung.
 
 ## Grenzen
 
