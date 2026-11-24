@@ -7,6 +7,8 @@ import datetime as dt
 import getpass
 import hashlib
 import hmac
+import imaplib
+import re
 import html
 import json
 import os
@@ -65,6 +67,35 @@ def mail_senden(cfg: dict, betreff: str, text: str) -> None:
         raise Fehler(f"Verschlüsselung fehlgeschlagen ({ex.reason}): Port und Verschlüsselung passen nicht zusammen?") from ex
     except OSError as ex:
         raise Fehler(f"SMTP-Server {cfg['mail_server']}:{port} nicht erreichbar: {ex}") from ex
+    ablegen(cfg, nachricht)
+
+
+def imap_server(cfg: dict) -> str:
+    return cfg.get("mail_imap_server") or re.sub(r"^smtp\.", "imap.", cfg.get("mail_server") or "")
+
+
+def ablegen(cfg: dict, nachricht: EmailMessage) -> None:
+    """Gesendete Mail als gelesen in den IMAP-Ordner legen (Port 993, SSL); legt den Ordner bei Bedarf an.
+    Fehler nur ins Protokoll: Die Mail ist schon verschickt."""
+    ordner = (cfg.get("mail_ordner") or "").strip()
+    if not ordner:
+        return
+    name = '"' + ordner.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    try:
+        with imaplib.IMAP4_SSL(imap_server(cfg), 993, ssl_context=ssl.create_default_context()) as imap:
+            imap.sock.settimeout(30)
+            imap.login(cfg.get("mail_benutzer") or "", cfg.get("mail_passwort") or "")
+            inhalt = nachricht.as_bytes()
+            zeit = imaplib.Time2Internaldate(time.time())
+            typ, antwort = imap.append(name, r"(\Seen)", zeit, inhalt)
+            if typ != "OK":  # Ordner fehlt noch
+                imap.create(name)
+                imap.subscribe(name)
+                typ, antwort = imap.append(name, r"(\Seen)", zeit, inhalt)
+            if typ != "OK":
+                raise imaplib.IMAP4.error(antwort)
+    except (imaplib.IMAP4.error, OSError) as ex:
+        log(f"Gesendete Mail „{nachricht['Subject']}“ nicht im Ordner „{ordner}“ abgelegt: {ex}")
 
 
 def melden(schluessel: str, betreff: str, text: str, abstand_stunden: float = 24) -> None:

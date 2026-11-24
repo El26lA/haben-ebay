@@ -16,7 +16,7 @@ Haben bucht und schreibt fest, dieser Dienst nicht: Er legt nur Entwürfe und Be
 - **Zahlungen an Haben** (Haben ab 0.12, abschaltbar): Geldbewegungen und Auszahlungen gehen über den REST-Import (`POST /api/v1/bankimporte`) in ein eBay-Konto des Zahlungsdienstleisters, je Verkauf als Brutto und Gebühr, Auszahlungen als Geldtransit. Dafür in Haben am eBay-Konto die externe Quelle „haben-ebay“ freigeben und dem Token das Recht `bank:importieren` geben. An ein Bankkonto liefert der Dienst nie.
 - **Kontolöschungen:** die von eBay verlangte Meldestelle (Marketplace Account Deletion). Meldungen werden angezeigt und bei bekannten Käufern per Mail gemeldet, aber nie automatisch umgesetzt: Rechnungen unterliegen der Aufbewahrungspflicht.
 - **Bewertungen** über die Feedback API: Jede neue neutrale oder negative Bewertung wird beim nächsten Lauf (alle 15 Minuten) per Mail gemeldet, mit Kommentar, Artikel, Bestellung und Käufer, und für immer im Datenordner gespeichert. Beim ersten Lauf werden die vorhandenen nur übernommen, ohne Mail. Braucht das Recht `commerce.feedback` (nach einem Update einmal „Neu verbinden“).
-- **E-Mail** über SMTP: eBay-Verbindung läuft bald ab, drei Läufe in Folge mit Fehlern, Kontolöschung eines bekannten Käufers, neutrale oder negative Bewertung.
+- **E-Mail** über SMTP: eBay-Verbindung läuft bald ab, drei Läufe in Folge mit Fehlern, Kontolöschung eines bekannten Käufers, neutrale oder negative Bewertung. Auf Wunsch kommt jede gesendete Mail zusätzlich per IMAP in einen Ordner des Postfachs (Einstellung „Ordner für gesendete Mails“).
 
 ## Grenzen
 

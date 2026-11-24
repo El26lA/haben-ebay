@@ -82,7 +82,7 @@ Auf [developer.ebay.com/my/keys](https://developer.ebay.com/my/keys):
 1. Anmelden (Haken „angemeldet bleiben“).
 2. Einstellungen: Haben-Token (Nutzer), App ID, Cert ID (Nutzer), RuName, Adressen, Marktplatz (`EBAY_DE` für Deutschland), **Umsatzsteuer** passend zu Haben, „Nur Bestellungen ab“ leer für alles. Speichern: oben muss „Verbindung zu Haben steht“ erscheinen.
 3. **Mit eBay verbinden** → Zwischenseite → „Weiter zu eBay“ (neuer Tab). Der Nutzer meldet sich mit dem **Verkäuferkonto** an und stimmt zu (Bestellungen lesen, Finanzdaten). Danach: „eBay-Konto verbunden (gültig … Tage)“.
-4. Optional E-Mail-Benachrichtigung: SMTP-Server, Port, Verschlüsselung, Benutzer, Passwort (Nutzer), Empfänger; „Speichern und Testmail senden“.
+4. Optional E-Mail-Benachrichtigung: SMTP-Server, Port, Verschlüsselung, Benutzer, Passwort (Nutzer), Empfänger; optional „Ordner für gesendete Mails“ (IMAP, Port 993, gleiche Anmeldung; IMAP-Server leer = `imap.` statt `smtp.`); „Speichern und Testmail senden“. Die Testmail muss dann auch im Ordner liegen, sonst steht der Grund im Protokoll („nicht im Ordner … abgelegt“).
 5. **„Alles Alte – Probelauf“**, Protokoll lesen. Der erste Lauf mit Finanzdaten legt den Signaturschlüssel bei eBay an („eBay-Signaturschlüssel angelegt“).
 6. **„Alles Alte holen“**, nach den ersten Einträgen im Protokoll einen Entwurf in Haben öffnen und mit dem Nutzer prüfen. Erst dann **Aktivieren** (Abgleich alle 15 Minuten).
 

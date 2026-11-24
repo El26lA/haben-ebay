@@ -79,6 +79,8 @@ DEFAULTS = {
     "mail_passwort": "",
     "mail_absender": "",
     "mail_empfaenger": "",
+    "mail_ordner": "",  # IMAP-Ordner, in den jede gesendete Mail kommt (leer = aus)
+    "mail_imap_server": "",  # leer = SMTP-Server mit imap. statt smtp.
 }
 
 LOCK = threading.RLock()

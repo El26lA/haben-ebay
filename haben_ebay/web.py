@@ -164,7 +164,7 @@ def mail_abschnitt(cfg: dict, hidden: str) -> str:
                    for v, t in (("starttls", "STARTTLS (meist Port 587)"), ("ssl", "SSL/TLS (meist Port 465)"), ("keine", "keine (nicht empfohlen)")))
     return f"""<form class=card method=post action=/mail>{hidden}<h2>E-Mail-Benachrichtigung</h2>
 <p class=hint>Mail bei: eBay-Verbindung läuft in 30 Tagen ab (wöchentlich, in der letzten Woche täglich), drei Läufe in Folge mit Fehlern
-(höchstens einmal am Tag), Kontolöschung eines Käufers, von dem es eine Rechnung gibt.</p>
+(höchstens einmal am Tag), Kontolöschung eines Käufers, von dem es eine Rechnung gibt, sofort bei neutraler oder negativer Bewertung.</p>
 <label class=check style='margin:8px 0 12px'><input type=checkbox name=mail_aktiv value=1{' checked' if cfg.get('mail_aktiv') else ''}> Benachrichtigungen einschalten</label>
 <div class=row>
 <div><label for=ms>SMTP-Server</label><input id=ms type=text name=mail_server value='{e(cfg.get('mail_server', ''))}' autocomplete=off>
@@ -178,6 +178,10 @@ def mail_abschnitt(cfg: dict, hidden: str) -> str:
 <div><label for=ma>Absender</label><input id=ma type=text name=mail_absender value='{e(cfg.get('mail_absender', ''))}' autocomplete=off>
 <p class=hint>Leer = Benutzer. Bei 1&amp;1 muss es ein Postfach oder Alias des Kontos sein.</p></div>
 <div><label for=me>Empfänger</label><input id=me type=text name=mail_empfaenger value='{e(cfg.get('mail_empfaenger', ''))}' autocomplete=off></div>
+<div><label for=mo>Ordner für gesendete Mails</label><input id=mo type=text name=mail_ordner value='{e(cfg.get('mail_ordner', ''))}' autocomplete=off>
+<p class=hint>Jede gesendete Mail kommt zusätzlich in diesen Ordner deines Postfachs (IMAP, Port 993); er wird bei Bedarf angelegt. Leer = aus.</p></div>
+<div><label for=mi>IMAP-Server</label><input id=mi type=text name=mail_imap_server value='{e(cfg.get('mail_imap_server', ''))}' autocomplete=off>
+<p class=hint>Leer = SMTP-Server mit „imap.“ statt „smtp.“</p></div>
 </div>
 <div class=actions><button class=primary>Speichern</button><button formaction=/mail/test>Speichern und Testmail senden</button></div></form>"""
 
@@ -689,7 +693,7 @@ class Handler(BaseHTTPRequestHandler):
     def mail_einstellungen(self, cfg: dict, f: dict, test: bool) -> str:
         fehler = []
         cfg["mail_aktiv"] = f.get("mail_aktiv") == "1"
-        for feld in ("mail_server", "mail_benutzer", "mail_absender", "mail_empfaenger"):
+        for feld in ("mail_server", "mail_benutzer", "mail_absender", "mail_empfaenger", "mail_ordner", "mail_imap_server"):
             cfg[feld] = f.get(feld, "").strip()
         if f.get("mail_passwort", ""):
             cfg["mail_passwort"] = f["mail_passwort"]
@@ -707,6 +711,10 @@ class Handler(BaseHTTPRequestHandler):
                 fehler.append(f"{name} ist keine gültige E-Mail-Adresse")
         if any(c in cfg["mail_server"] for c in " /:@") :
             fehler.append("SMTP-Server nur als Name, z. B. smtp.example.de")
+        if not cfg["mail_ordner"].isascii() or any(c in cfg["mail_ordner"] for c in '"\\\r\n'):
+            fehler.append("Ordnername ohne Umlaute, Anführungszeichen und Backslash")
+        if any(c in cfg["mail_imap_server"] for c in " /:@"):
+            fehler.append("IMAP-Server nur als Name, z. B. imap.example.de")
         if (cfg["mail_aktiv"] or test) and not (cfg["mail_server"] and cfg["mail_empfaenger"]):
             fehler.append("SMTP-Server und Empfänger angeben")
         if fehler:
