@@ -69,7 +69,7 @@ class Web(unittest.TestCase):
             self.assertIn(f"name={feld}", einst)
         self.assertIn("eBay-Konto verbinden", einst)
         self.assertIn("<a href='/einstellungen' class='an'>", einst)
-        self.assertIn("Meldestelle im eBay-Entwicklerportal", self.op.open(self.base + "/kontoloeschungen").read().decode())
+        self.assertIn("Im eBay-Entwicklerportal", self.op.open(self.base + "/kontoloeschungen").read().decode())
         self.assertIn("<h2>Protokoll</h2>", self.op.open(self.base + "/protokoll").read().decode())
         best = self.op.open(self.base + "/bestellungen").read().decode()
         for ziel in ("/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json"):

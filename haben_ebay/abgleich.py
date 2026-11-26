@@ -30,11 +30,19 @@ from .gebuehren import gebuehren_abgleich
 from .zahlungen import zahlungen_abgleich
 from .mail import lauf_pruefen
 from .bewertungen import bewertungen_abgleich
+from .meldestelle import meldestelle_abholen
 
 
 def abgleich(schreiben: bool = True, beispiel: str | None = None, voll: bool = False) -> str:
     cfg = lade_config()
     transaktionen = None
+    meldestelle = ""
+    if schreiben and not beispiel:  # zuerst, damit Kontolöschungen auch ankommen, wenn eBay gerade nicht antwortet
+        try:
+            meldestelle = meldestelle_abholen(cfg)
+        except Fehler as e:
+            meldestelle = f"Kontolöschungen: Fehler: {e}"
+            log(f"FEHLER Meldestelle (Cloudflare): {e}")
     if beispiel:
         with open(beispiel, encoding="utf-8") as f:
             raw = json.load(f)
@@ -113,6 +121,8 @@ def abgleich(schreiben: bool = True, beispiel: str | None = None, voll: bool = F
         except Fehler as e:
             ergebnis += f" · Bewertungen: Fehler: {e}"
             log(f"FEHLER Bewertungen: {e}")
+    if meldestelle:
+        ergebnis += " · " + meldestelle
     if not beispiel and fehler == 0:
         cfg = lade_config()
         cfg["letzter_abruf"] = start.isoformat()

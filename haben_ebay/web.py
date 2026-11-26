@@ -33,6 +33,7 @@ from .gebuehren import *  # noqa: F403
 from .haben import haben
 from .kontoloeschung import *  # noqa: F403
 from .mail import *  # noqa: F403
+from .meldestelle import ARTEN, endpunkt, meldung_verarbeiten
 
 
 # ── Anmeldung ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -196,12 +197,34 @@ def loesch_abschnitt(cfg: dict) -> str:
 (§ 147 AO, § 14b UStG). Du entscheidest selbst, ob du Kontaktdaten außerhalb der Rechnungen anpasst.
 {f"<strong class=warn>{bekannte} Meldung(en) betreffen eigene Kunden.</strong>" if bekannte else ""}</p>
 <table><tr><th>Gemeldet</th><th>eBay-Nutzer</th><th>Betrifft</th></tr>{zeilen}</table>
-<h2 style='margin-top:18px'>Meldestelle im eBay-Entwicklerportal</h2>
+<h2 style='margin-top:18px'>Meldestelle</h2>
+<p>Art: <b>{e(ARTEN.get(cfg.get('meldestelle'), ''))}</b> <span class=hint>(umstellen unter <a href=/einstellungen>Einstellungen › Anbindung an eBay</a>;
+die andere Art ist abgeschaltet)</span></p>{worker_stand(cfg)}
+<h2 style='margin-top:18px'>Im eBay-Entwicklerportal</h2>
 <p class=hint>developer.ebay.com › Alerts &amp; Notifications › Marketplace Account Deletion, beide Werte genau so eintragen:</p>
 <div class=row><div><label for=hu2>Marketplace account deletion notification endpoint</label>
-<input id=hu2 type=text readonly value='{e(cfg['hook_url'])}'></div>
+<input id=hu2 type=text readonly value='{e(endpunkt(cfg))}'></div>
 <div><label for=ht2>Verification token</label><input id=ht2 type=text readonly value='{e(cfg['hook_token'])}'></div></div>
+{worker_werte(cfg) if cfg.get('meldestelle') == 'cloudflare' else ''}
 </section>"""
+
+
+def worker_stand(cfg: dict) -> str:
+    if cfg.get("meldestelle") != "cloudflare":
+        return ""
+    st = STATUS.get("meldestelle")
+    return (f"<p class=hint>Zuletzt beim Worker abgeholt: {e(st['zeit'])}, {st['abgeholt']} Meldung(en).</p>" if st
+            else "<p class=hint>Seit dem Neustart noch nicht beim Worker abgeholt; das passiert bei jedem Lauf (nicht beim Probelauf).</p>")
+
+
+def worker_werte(cfg: dict) -> str:
+    """Die drei Geheimnisse, die beim Cloudflare Worker unter Settings › Variables and Secrets stehen müssen"""
+    felder = (("VERIFICATION_TOKEN", cfg["hook_token"]), ("ENDPOINT", cfg["cf_url"]), ("ABHOL_SCHLUESSEL", cfg["cf_schluessel"]))
+    return ("<h2 style='margin-top:18px'>Beim Cloudflare Worker</h2><p class=hint>Workers &amp; Pages › Worker › Settings › Variables and Secrets, "
+            "je als <b>Secret</b> mit genau diesem Namen; dazu unter Bindings einen KV-Namespace mit dem Variablennamen <code>MELDUNGEN</code>. "
+            "Das Programm steht in <code>cloudflare/worker.js</code>.</p><div class=row>"
+            + "".join(f"<div><label for=w{i}>{n}</label><input id=w{i} type=text readonly value='{e(v)}'></div>" for i, (n, v) in enumerate(felder))
+            + "</div>")
 
 
 def mail_abschnitt(cfg: dict, hidden: str) -> str:
@@ -352,8 +375,14 @@ def einstellungen_seite() -> bytes:
 <div><label for=rn>RuName (eBay Redirect URL name)</label><input id=rn type=text name=ebay_runame value='{e(cfg['ebay_runame'])}' autocomplete=off></div>
 <div><label for=mk>Marktplatz</label><input id=mk type=text name=ebay_marktplatz value='{e(cfg['ebay_marktplatz'])}'>
 <p class=hint>Für die Finanzdaten, z. B. EBAY_DE</p></div>
-<div><label for=hk>Öffentliche Adresse der Meldestelle</label><input id=hk type=text name=hook_url value='{e(cfg['hook_url'])}' placeholder='https://ebay-hook.example.de/ebay/konto-loeschung'>
-<p class=hint>Für Kontolöschungen bei eBay; muss aus dem Internet erreichbar sein und auf <code>/ebay/konto-loeschung</code> enden.</p></div></div>
+<div><label for=ms2>Meldestelle für Kontolöschungen</label><select id=ms2 name=meldestelle>{''.join(
+        f"<option value={k}{' selected' if cfg.get('meldestelle') == k else ''}>{t}</option>" for k, t in ARTEN.items())}</select>
+<p class=hint>Cloudflare: der Worker nimmt die Meldungen an, der Abgleich holt sie bei jedem Lauf ab; zu Hause muss kein Port offen sein.
+Offener Port: eBay ruft diese Seite direkt auf. Die jeweils andere Art ist abgeschaltet. Werte für eBay und den Worker unter <a href=/kontoloeschungen>Kontolöschungen</a>.</p></div>
+<div><label for=cu>Adresse des Cloudflare Workers</label><input id=cu type=text name=cf_url value='{e(cfg.get('cf_url', ''))}' placeholder='https://ebay-meldestelle.name.workers.dev/ebay/konto-loeschung'>
+<p class=hint>Für „Cloudflare Worker“; endet auf <code>/ebay/konto-loeschung</code>.</p></div>
+<div><label for=hk>Öffentliche Adresse am offenen Port</label><input id=hk type=text name=hook_url value='{e(cfg['hook_url'])}' placeholder='https://ebay-hook.example.de/ebay/konto-loeschung'>
+<p class=hint>Für „Offener Port“; muss aus dem Internet erreichbar sein und auf <code>/ebay/konto-loeschung</code> enden.</p></div></div>
 <p class=hint>developer.ebay.com › Application Keysets (Production). Beim RuName als „Auth accepted URL“ eintragen:
 <code>{e((cfg['seite_adresse'] or 'https://…').rstrip('/'))}/ebay/callback</code></p>
 <div class=actions><button class=primary>Speichern</button></div></form>
@@ -643,11 +672,15 @@ class Handler(BaseHTTPRequestHandler):
     def hook_get(self, q: dict) -> None:
         cfg = lade_config()
         code = (q.get("challenge_code") or [""])[0]
+        if cfg.get("meldestelle") != "port":
+            return self.json_antwort(404)
         if not code or not cfg["hook_token"] or not cfg["hook_url"]:
             return self.json_antwort(400, {"error": "challenge_code fehlt oder Meldestelle nicht eingerichtet"})
         self.json_antwort(200, {"challengeResponse": challenge_antwort(code, cfg["hook_token"], cfg["hook_url"])})
 
     def hook_post(self) -> None:
+        if lade_config().get("meldestelle") != "port":  # Meldestelle läuft beim Cloudflare Worker: hier abgeschaltet
+            return self.json_antwort(404)
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0 or n > 65536:
             return self.json_antwort(400)
@@ -655,17 +688,7 @@ class Handler(BaseHTTPRequestHandler):
             nachricht = json.loads(self.rfile.read(n))
         except ValueError:
             return self.json_antwort(400)
-        eintrag = kontoloeschung_merken(nachricht) if isinstance(nachricht, dict) else None
-        if eintrag:
-            wer = eintrag["bekannt"]["name"] if eintrag["bekannt"] else "unbekannt (keine übernommene Bestellung)"
-            log(f"KONTOLÖSCHUNG gemeldet: eBay-Nutzer {eintrag['username'] or eintrag['userId']} – {wer}")
-            if eintrag["bekannt"]:
-                b = eintrag["bekannt"]
-                melden(f"loeschung_{eintrag['username'] or eintrag['userId']}", f"Kontolöschung: {b['name']}",
-                       f"eBay meldet, dass der Käufer {eintrag['username'] or eintrag['userId']} ({b['name']}) sein eBay-Konto gelöscht hat.\n"
-                       f"Bestellungen: {', '.join(b.get('bestellungen') or [])}\n\n"
-                       "Der Abgleich löscht nichts. Rechnungen musst du wegen der Aufbewahrungspflicht ohnehin behalten; "
-                       "ob du den Kontakt in Haben änderst, entscheidest du.", 24 * 365)
+        meldung_verarbeiten(nachricht)
         # eBay erwartet 200/201/202/204, sonst wiederholt es die Meldung
         self.json_antwort(204)
 
@@ -905,12 +928,18 @@ class Handler(BaseHTTPRequestHandler):
                 fehler.append("Datum „Nur ab“ ungültig")
         else:
             cfg["nur_ab"] = ""
-        for feld in ("haben_url", "ebay_client_id", "ebay_runame", "haben_adresse", "seite_adresse", "hook_url", "ebay_marktplatz"):
+        if f.get("meldestelle") in ARTEN:
+            cfg["meldestelle"] = f["meldestelle"]
+        for feld in ("haben_url", "ebay_client_id", "ebay_runame", "haben_adresse", "seite_adresse", "hook_url", "ebay_marktplatz", "cf_url"):
             if feld in f:
                 cfg[feld] = f[feld].strip()
         for feld, name in (("haben_adresse", "Adresse von Haben"), ("seite_adresse", "Adresse dieser Seite"), ("hook_url", "Adresse der Meldestelle")):
             if cfg[feld] and not cfg[feld].startswith("https://"):
                 fehler.append(f"{name} muss mit https:// beginnen")
+        if cfg["cf_url"] and not (cfg["cf_url"].startswith("https://") and cfg["cf_url"].rstrip("/").endswith(HOOK_PFAD)):
+            fehler.append(f"Adresse des Workers muss mit https:// beginnen und auf {HOOK_PFAD} enden")
+        if cfg["meldestelle"] == "cloudflare" and not cfg["cf_url"]:
+            fehler.append("Für „Cloudflare Worker“ die Adresse des Workers angeben")
         if cfg["hook_url"] and not cfg["hook_url"].rstrip("/").endswith(HOOK_PFAD):
             fehler.append(f"Adresse der Meldestelle muss auf {HOOK_PFAD} enden")
         if "zahlungen_kennung" in f:
@@ -934,7 +963,9 @@ class Handler(BaseHTTPRequestHandler):
             ("Haben API-Token", maskiert(neu["haben_token"])), ("Zahlungen an Haben", "an" if neu.get("zahlungen_an") else "aus"),
             ("Kennung der Quelle", neu.get("zahlungen_kennung") or ""), ("API-Adresse", neu["haben_url"]), ("Adresse von Haben", neu["haben_adresse"]),
             ("Adresse dieser Seite", neu["seite_adresse"]), ("eBay App ID", neu["ebay_client_id"]), ("eBay Cert ID", maskiert(neu["ebay_client_secret"])),
-            ("RuName", neu["ebay_runame"]), ("Marktplatz", neu["ebay_marktplatz"]), ("Meldestelle", neu["hook_url"])])
+            ("RuName", neu["ebay_runame"]), ("Marktplatz", neu["ebay_marktplatz"]),
+            ("Meldestelle", ARTEN.get(neu["meldestelle"], neu["meldestelle"])), ("Adresse des Workers", neu["cf_url"]),
+            ("Adresse am offenen Port", neu["hook_url"])])
         # Verbindung zu Haben gleich prüfen
         try:
             status, data = haben(cfg, "GET", "/rechnungen?" + urllib.parse.urlencode({"externalSource": QUELLE, "limit": 1}))

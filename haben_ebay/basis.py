@@ -71,6 +71,9 @@ DEFAULTS = {
     # Meldestelle für eBays Marketplace Account Deletion: einzige von außen erreichbare Adresse
     "hook_url": os.environ.get("EBAY_HOOK_URL", ""),
     "hook_token": "",
+    "meldestelle": "port",  # port: Meldestelle hier am offenen Port; cloudflare: Worker nimmt an, der Abgleich holt ab
+    "cf_url": "",  # Adresse des Workers wie bei eBay eingetragen, endet auf /ebay/konto-loeschung
+    "cf_schluessel": "",  # Abholschlüssel, derselbe Wert steht beim Worker als ABHOL_SCHLUESSEL
     # E-Mail-Benachrichtigung (SMTP)
     "mail_aktiv": False,
     "mail_server": "",

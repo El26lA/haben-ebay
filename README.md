@@ -30,7 +30,7 @@ Haben bucht und schreibt fest, dieser Dienst nicht: Er legt nur Entwürfe und Be
 - Haben ab 0.8.2 mit eingeschalteter API.
 - Docker, ein Reverse Proxy mit HTTPS.
 - Ein **eBay-Entwicklerkonto** (kostenlos) mit eigenem Production-Keyset. Jeder Betreiber braucht sein eigenes.
-- Eine **aus dem Internet erreichbare Adresse** für die Meldestelle der Kontolöschungen; ohne sie schaltet eBay das Keyset nicht frei. Die Einstellungsseite selbst muss nicht öffentlich sein.
+- Eine **aus dem Internet erreichbare Adresse** für die Meldestelle der Kontolöschungen; ohne sie schaltet eBay das Keyset nicht frei. Entweder ein offener Port zum Dienst oder, ohne offenen Port, ein kostenloser Cloudflare Worker (siehe [Meldestelle bei Cloudflare](#meldestelle-bei-cloudflare)). Die Einstellungsseite selbst muss nicht öffentlich sein.
 
 ## Einrichten
 
@@ -61,6 +61,17 @@ Damit die eBay-Zahlungen als Umsätze in Haben ankommen und die Rechnungen dort 
 Meldet Haben einen Konflikt (eine Bewegung kam mit anderem Betrag noch einmal), liefert der Dienst nichts mehr, bis er am eBay-Konto unter **Konflikt klären** gelöst ist.
 
 Für die Finanzdaten verlangt eBay bei Verkäufern in der EU und im Vereinigten Königreich [signierte Anfragen](https://developer.ebay.com/develop/guides/digital-signatures-for-apis). Den Schlüssel legt der Dienst selbst über die Key Management API an (drei Jahre gültig, Erneuerung 30 Tage vorher).
+
+### Meldestelle bei Cloudflare
+
+Ohne offenen Port: Ein Cloudflare Worker ([`cloudflare/worker.js`](cloudflare/worker.js), kostenlose Stufe reicht) beantwortet die Prüfung von eBay und legt Meldungen ab; der Dienst holt sie bei jedem Lauf ab (Verbindung nach außen) und lässt sie dort löschen. Gespeichert wird dauerhaft nur beim Dienst.
+
+1. Cloudflare › **Workers & Pages** › Worker anlegen (z. B. `ebay-meldestelle`), den Inhalt von `cloudflare/worker.js` als Code einsetzen, bereitstellen. Die Adresse ist dann `https://ebay-meldestelle.<name>.workers.dev`.
+2. **Storage & Databases › KV** einen Namespace anlegen (z. B. `ebay-meldungen`) und beim Worker unter **Settings › Bindings** mit dem Variablennamen `MELDUNGEN` verbinden.
+3. Einstellungsseite › Einstellungen › Anbindung an eBay: **Meldestelle** „Cloudflare Worker“, Adresse des Workers mit `/ebay/konto-loeschung` am Ende, speichern.
+4. Beim Worker unter **Settings › Variables and Secrets** drei **Secrets** anlegen: `VERIFICATION_TOKEN`, `ENDPOINT`, `ABHOL_SCHLUESSEL`, die Werte zeigt die Einstellungsseite unter „Kontolöschungen“.
+5. Bei eBay (Alerts & Notifications) Endpoint und Token wie unter „Kontolöschungen“ eintragen, „Send Test Notification“. Nach dem nächsten Lauf steht die Testmeldung unter „Kontolöschungen“.
+6. Erst dann den offenen Port und die Proxy-Regel für die alte Meldestelle entfernen. Zurück geht es jederzeit mit „Offener Port“; die jeweils andere Art ist abgeschaltet.
 
 ## Umgebungsvariablen
 

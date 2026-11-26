@@ -110,6 +110,9 @@ def main(argv: list[str]) -> int:
             # Verification token für eBay: 32 bis 80 Zeichen aus Buchstaben, Ziffern, _ und -
             cfg["hook_token"] = secrets.token_urlsafe(48)
             speichere_config(cfg)
+        if not cfg["cf_schluessel"]:
+            cfg["cf_schluessel"] = secrets.token_urlsafe(48)  # zum Abholen beim Cloudflare Worker
+            speichere_config(cfg)
         protokoll_dauerhaft()
         sitzungen_laden()
         threading.Thread(target=worker, daemon=True).start()
