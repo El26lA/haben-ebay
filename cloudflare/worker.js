@@ -1,11 +1,14 @@
 // Meldestelle für eBays „Marketplace Account Deletion“ als Cloudflare Worker.
 //
 // Damit muss zu Hause kein Port offen sein: Der Worker beantwortet die Prüfung von eBay und legt jede Meldung
-// in einem KV-Namespace ab. haben-ebay holt die Meldungen bei jedem Lauf ab (Verbindung nach außen) und lässt
+// in einer D1-Datenbank ab. haben-ebay holt die Meldungen bei jedem Lauf ab (Verbindung nach außen) und lässt
 // sie danach hier löschen. Gespeichert wird dauerhaft nur bei haben-ebay.
 //
+// eBay schickt die Löschungen aller eBay-Konten weltweit, über 1.000 am Tag. Deshalb D1 (kostenlos 100.000
+// geschriebene Zeilen am Tag) und nicht KV (kostenlos nur 1.000 Schreibvorgänge am Tag).
+//
 // Einrichten (Anleitung in README.md, „Meldestelle bei Cloudflare“):
-//   KV-Namespace an den Worker binden, Variablenname MELDUNGEN
+//   D1-Datenbank an den Worker binden, Variablenname DB (die Tabelle legt der Worker selbst an)
 //   Geheimnisse (Secrets) des Workers, die Werte zeigt haben-ebay unter „Kontolöschungen“:
 //     VERIFICATION_TOKEN  dasselbe Token wie bei eBay
 //     ENDPOINT            genau die Adresse, die bei eBay steht (…/ebay/konto-loeschung)
@@ -15,12 +18,20 @@ const PFAD = "/ebay/konto-loeschung";
 const ABHOLEN = "/abholen";
 const MAX_BYTES = 65536;
 const MAX_JE_ABRUF = 500;
+let tabelleDa = false;
 
 const json = (status, daten) =>
   new Response(daten === undefined ? null : JSON.stringify(daten), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+
+async function tabelle(env) {
+  if (!tabelleDa) {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS meldungen (id INTEGER PRIMARY KEY AUTOINCREMENT, eingang TEXT NOT NULL, nachricht TEXT NOT NULL)").run();
+    tabelleDa = true;
+  }
+}
 
 async function sha256hex(text) {
   const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -48,19 +59,16 @@ async function meldungAnnehmen(request, env) {
   }
   // Nur Kontolöschungen ablegen; alles andere bestätigen und verwerfen
   if (nachricht?.metadata?.topic !== "MARKETPLACE_ACCOUNT_DELETION") return json(204);
-  const id = `m:${String(Date.now()).padStart(15, "0")}:${crypto.randomUUID()}`;
-  await env.MELDUNGEN.put(id, text);
+  await tabelle(env);
+  await env.DB.prepare("INSERT INTO meldungen (eingang, nachricht) VALUES (?, ?)").bind(new Date().toISOString(), text).run();
   return json(204); // eBay erwartet 200, 201, 202 oder 204, sonst wiederholt es die Meldung
 }
 
 async function abholen(env) {
-  const liste = await env.MELDUNGEN.list({ prefix: "m:", limit: MAX_JE_ABRUF });
-  const meldungen = [];
-  for (const k of liste.keys) {
-    const text = await env.MELDUNGEN.get(k.name);
-    if (text !== null) meldungen.push({ id: k.name, nachricht: JSON.parse(text) });
-  }
-  return json(200, { meldungen, weitere: !liste.list_complete });
+  await tabelle(env);
+  const { results } = await env.DB.prepare("SELECT id, nachricht FROM meldungen ORDER BY id LIMIT ?").bind(MAX_JE_ABRUF + 1).all();
+  const meldungen = results.slice(0, MAX_JE_ABRUF).map((r) => ({ id: r.id, nachricht: JSON.parse(r.nachricht) }));
+  return json(200, { meldungen, weitere: results.length > MAX_JE_ABRUF });
 }
 
 async function loeschen(request, env) {
@@ -70,9 +78,15 @@ async function loeschen(request, env) {
   } catch {
     return json(400);
   }
-  const ids = (Array.isArray(daten?.erledigt) ? daten.erledigt : []).filter((x) => typeof x === "string" && x.startsWith("m:"));
-  for (const id of ids.slice(0, MAX_JE_ABRUF)) await env.MELDUNGEN.delete(id);
-  return json(200, { geloescht: Math.min(ids.length, MAX_JE_ABRUF) });
+  const ids = (Array.isArray(daten?.erledigt) ? daten.erledigt : []).filter(Number.isInteger).slice(0, MAX_JE_ABRUF);
+  await tabelle(env);
+  const befehle = [];
+  for (let i = 0; i < ids.length; i += 90) {
+    const teil = ids.slice(i, i + 90); // D1 erlaubt höchstens 100 Parameter je Abfrage
+    befehle.push(env.DB.prepare(`DELETE FROM meldungen WHERE id IN (${teil.map(() => "?").join(",")})`).bind(...teil));
+  }
+  if (befehle.length) await env.DB.batch(befehle);
+  return json(200, { geloescht: ids.length });
 }
 
 export default {

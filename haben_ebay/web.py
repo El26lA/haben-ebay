@@ -221,7 +221,7 @@ def worker_werte(cfg: dict) -> str:
     """Die drei Geheimnisse, die beim Cloudflare Worker unter Settings › Variables and Secrets stehen müssen"""
     felder = (("VERIFICATION_TOKEN", cfg["hook_token"]), ("ENDPOINT", cfg["cf_url"]), ("ABHOL_SCHLUESSEL", cfg["cf_schluessel"]))
     return ("<h2 style='margin-top:18px'>Beim Cloudflare Worker</h2><p class=hint>Workers &amp; Pages › Worker › Settings › Variables and Secrets, "
-            "je als <b>Secret</b> mit genau diesem Namen; dazu unter Bindings einen KV-Namespace mit dem Variablennamen <code>MELDUNGEN</code>. "
+            "je als <b>Secret</b> mit genau diesem Namen; dazu unter Bindings eine D1-Datenbank mit dem Variablennamen <code>DB</code>. "
             "Das Programm steht in <code>cloudflare/worker.js</code>.</p><div class=row>"
             + "".join(f"<div><label for=w{i}>{n}</label><input id=w{i} type=text readonly value='{e(v)}'></div>" for i, (n, v) in enumerate(felder))
             + "</div>")
