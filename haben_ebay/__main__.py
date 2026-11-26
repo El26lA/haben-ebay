@@ -24,6 +24,7 @@ from email.utils import formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .basis import *  # noqa: F403
 from .abgleich import abgleich, worker
+from .kontoloeschung import loesch_archiv_anlegen
 from .web import Handler, passwort_hash, sitzungen_laden, sitzungen_speichern
 
 
@@ -114,6 +115,7 @@ def main(argv: list[str]) -> int:
             cfg["cf_schluessel"] = secrets.token_urlsafe(48)  # zum Abholen beim Cloudflare Worker
             speichere_config(cfg)
         protokoll_dauerhaft()
+        loesch_archiv_anlegen()
         sitzungen_laden()
         threading.Thread(target=worker, daemon=True).start()
         threading.Thread(target=selbst_neustart, daemon=True).start()

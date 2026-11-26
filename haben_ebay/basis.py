@@ -95,7 +95,9 @@ SITZUNG_FILE = os.path.join(DATA_DIR, "sitzungen.json")  # SHA-256 der Sitzungs-
 GEBUEHR_FILE = os.path.join(DATA_DIR, "gebuehren.json")
 MELDUNG_FILE = os.path.join(DATA_DIR, "meldungen.json")  # Schlüssel → Zeitpunkt der letzten Mail (nicht zu oft melden)  # "JJJJ-MM" → {"beleg", "summe", "posten"}: schon an Haben
 HOOK_PFAD = "/ebay/konto-loeschung"
-LOESCH_MAX = 2000  # die Meldestelle ist öffentlich: Liste begrenzen
+LOESCH_MAX = 2000  # nur die Schnellliste in LOESCH_FILE (Doppelte erkennen, Anzeige); alles steht dauerhaft in LOESCH_ALLE
+LOESCH_ALLE = os.path.join(DATA_DIR, "kontoloeschungen.log")  # jede Meldung als JSON-Zeile, nur anhängen, nie gekürzt
+LOESCH_KUNDEN = os.path.join(DATA_DIR, "kontoloeschungen-kunden.json")  # Meldungen zu eigenen Kunden, für immer, neueste zuerst
 LOG = collections.deque(maxlen=1000)  # Anzeige; mit protokoll_dauerhaft() steht alles in PROTOKOLL_FILE
 VERLAUF = collections.deque(maxlen=300)  # (zeit, orderId, ergebnis, text), neueste zuerst
 PROTOKOLL_FILE = os.path.join(DATA_DIR, "protokoll.log")  # jede Protokollzeile, nur anhängen, nie gekürzt

@@ -6,7 +6,9 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from haben_ebay import basis, meldestelle, web
+from unittest import mock
+
+from haben_ebay import basis, kontoloeschung, meldestelle, web
 
 from .hilfen import datenordner_leeren
 
@@ -78,6 +80,25 @@ class Abholen(unittest.TestCase):
         self.assertEqual(next(x for x in liste if x["username"] == "kaeufer_a")["bekannt"]["name"], "Erika Muster")
         self.assertEqual(sorted(FalscherWorker.geloescht), ["m:1", "m:2"])
         self.assertEqual(meldestelle.meldestelle_abholen(self.cfg), "Kontolöschungen: nichts Neues")
+
+    def test_alles_dauerhaft_eigene_kunden_fuer_immer(self):
+        basis.speichere_json(basis.KAEUFER_FILE, {"kaeufer_a": {"name": "Erika Muster", "bestellungen": ["12-34567-89012"], "kontakt": "k1"}})
+        with mock.patch.object(kontoloeschung, "LOESCH_MAX", 1):  # Schnellliste voll: nichts darf verloren gehen
+            meldestelle.meldestelle_abholen(self.cfg)
+        self.assertEqual(len(basis.lade_json(basis.LOESCH_FILE, [])), 1)
+        with open(basis.LOESCH_ALLE, encoding="utf-8") as f:
+            self.assertEqual([json.loads(z)["username"] for z in f], ["kaeufer_a", "kaeufer_b"])
+        self.assertEqual([x["username"] for x in basis.lade_json(basis.LOESCH_KUNDEN, [])], ["kaeufer_a"])
+        self.assertEqual(kontoloeschung.loesch_anzahl(), 2)
+
+    def test_bisherige_liste_kommt_einmal_ins_archiv(self):
+        basis.speichere_json(basis.LOESCH_FILE, [{"zeit": "2026-11-26T10:00:00", "username": "neu", "bekannt": None},
+                                                 {"zeit": "2026-11-25T10:00:00", "username": "alt", "bekannt": {"name": "X", "bestellungen": []}}])
+        kontoloeschung.loesch_archiv_anlegen()
+        kontoloeschung.loesch_archiv_anlegen()  # zweiter Start: nichts doppelt
+        self.assertEqual(kontoloeschung.loesch_anzahl(), 2)
+        self.assertEqual(kontoloeschung.loesch_beginn(), "25.11.2026")
+        self.assertEqual([x["username"] for x in basis.lade_json(basis.LOESCH_KUNDEN, [])], ["alt"])
 
     def test_wiederholte_meldung_nicht_doppelt(self):
         meldestelle.meldestelle_abholen(self.cfg)

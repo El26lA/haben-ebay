@@ -66,4 +66,42 @@ def kontoloeschung_merken(nachricht: dict) -> dict | None:
         }
         liste.insert(0, eintrag)
         speichere_json(LOESCH_FILE, liste[:LOESCH_MAX])
+        _alle_anhaengen([eintrag])
+        if bekannt:
+            kunden = lade_json(LOESCH_KUNDEN, [])
+            kunden.insert(0, eintrag)
+            speichere_json(LOESCH_KUNDEN, kunden)
     return eintrag
+
+
+def _alle_anhaengen(eintraege: list[dict]) -> None:
+    with open(os.open(LOESCH_ALLE, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), "a", encoding="utf-8", newline="\n") as f:
+        for x in eintraege:
+            f.write(json.dumps(x, ensure_ascii=False) + "\n")
+
+
+def loesch_archiv_anlegen() -> None:
+    """Einmal beim Start: gibt es das dauerhafte Archiv noch nicht, kommt die bisherige Schnellliste hinein (älteste zuerst)."""
+    with LOCK:
+        liste = lade_json(LOESCH_FILE, [])
+        if not os.path.exists(LOESCH_ALLE):
+            _alle_anhaengen(list(reversed(liste)))
+        if not os.path.exists(LOESCH_KUNDEN):
+            speichere_json(LOESCH_KUNDEN, [x for x in liste if x.get("bekannt")])
+
+
+def loesch_anzahl() -> int:
+    try:
+        with open(LOESCH_ALLE, "rb") as f:
+            return sum(block.count(b"\n") for block in iter(lambda: f.read(1 << 20), b""))
+    except OSError:
+        return 0
+
+
+def loesch_beginn() -> str:
+    """Datum der ältesten gespeicherten Meldung"""
+    try:
+        with open(LOESCH_ALLE, encoding="utf-8") as f:
+            return datum_de(json.loads(f.readline())["zeit"][:10])
+    except (OSError, ValueError, KeyError):
+        return "–"

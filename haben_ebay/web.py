@@ -180,23 +180,31 @@ def login_seite(meldung: str = "") -> bytes:
 
 def loesch_abschnitt(cfg: dict) -> str:
     """Kontolöschungen, die eBay gemeldet hat, und die Angaben für die Meldestelle im eBay-Entwicklerportal"""
-    liste = lade_json(LOESCH_FILE, [])
-    zeilen = "".join(
-        f"<tr><td>{e(x['zeit'][:16].replace('T', ' '))}</td><td>{e(x['username'] or x['userId'] or '–')}</td><td>"
-        + (
-            f"{e(x['bekannt']['name'])} – Bestellungen {e(', '.join(x['bekannt']['bestellungen']))}"
-            if x.get("bekannt")
-            else "<span class=hint>keine übernommene Bestellung, nichts zu tun</span>"
-        )
-        + "</td></tr>"
-        for x in liste[:50]
-    ) or "<tr><td colspan=3 class=hint>Keine Meldungen.</td></tr>"
-    bekannte = sum(1 for x in liste if x.get("bekannt"))
+    def zeilen(liste: list, leer: str) -> str:
+        return "".join(
+            f"<tr><td>{e(x['zeit'][:16].replace('T', ' '))}</td><td>{e(x['username'] or x['userId'] or '–')}</td><td>"
+            + (
+                f"{e(x['bekannt']['name'])} – Bestellungen {e(', '.join(x['bekannt']['bestellungen']))}"
+                if x.get("bekannt")
+                else "<span class=hint>keine übernommene Bestellung, nichts zu tun</span>"
+            )
+            + "</td></tr>"
+            for x in liste
+        ) or f"<tr><td colspan=3 class=hint>{leer}</td></tr>"
+
+    kunden = lade_json(LOESCH_KUNDEN, [])
+    kopf = "<tr><th>Gemeldet</th><th>eBay-Nutzer</th><th>Betrifft</th></tr>"
     return f"""<section class=card><h2>Kontolöschungen bei eBay</h2>
 <p class=hint>Löscht ein Käufer sein eBay-Konto, meldet eBay das hier. Haben löscht nichts: Rechnungen sind 10 Jahre aufzubewahren
-(§ 147 AO, § 14b UStG). Du entscheidest selbst, ob du Kontaktdaten außerhalb der Rechnungen anpasst.
-{f"<strong class=warn>{bekannte} Meldung(en) betreffen eigene Kunden.</strong>" if bekannte else ""}</p>
-<table><tr><th>Gemeldet</th><th>eBay-Nutzer</th><th>Betrifft</th></tr>{zeilen}</table>
+(§ 147 AO, § 14b UStG). Du entscheidest selbst, ob du Kontaktdaten außerhalb der Rechnungen anpasst.</p>
+<h2 style='margin-top:18px'>Eigene Kunden ({len(kunden)})</h2>
+<p class=hint>Alle Meldungen zu Käufern, von denen es eine Rechnung gibt, seit Beginn; bei jeder kommt sofort eine Mail.</p>
+<table>{kopf}{zeilen(kunden, "Bisher keine.")}</table>
+<h2 style='margin-top:18px'>Neueste Meldungen</h2>
+<p class=hint>eBay meldet die Löschungen aller eBay-Konten weltweit, über 1.000 am Tag; fast alle betreffen Fremde. Hier die letzten 50,
+insgesamt {format(loesch_anzahl(), ',').replace(',', '.')} seit {e(loesch_beginn())} (alle dauerhaft gespeichert).</p>
+<div class=actions style='margin:0 0 12px'><a class=btn href=/kontoloeschungen.log>Alle Meldungen herunterladen (eine Zeile je Meldung, JSON)</a></div>
+<table>{kopf}{zeilen(lade_json(LOESCH_FILE, [])[:50], "Keine Meldungen.")}</table>
 <h2 style='margin-top:18px'>Meldestelle</h2>
 <p>Art: <b>{e(ARTEN.get(cfg.get('meldestelle'), ''))}</b> <span class=hint>(umstellen unter <a href=/einstellungen>Einstellungen › Anbindung an eBay</a>;
 die andere Art ist abgeschaltet)</span></p>{worker_stand(cfg)}
@@ -306,8 +314,7 @@ def dashboard_seite() -> bytes:
     ebay_wert, ebay_kl, ebay_text = ebay_stand(cfg)
     a = lade_archiv()
     belege = [d for d in lade_json(GEBUEHR_FILE, {}).values() if d.get("beleg")]
-    loesch = lade_json(LOESCH_FILE, [])
-    bekannte = sum(1 for x in loesch if x.get("bekannt"))
+    bekannte = len(lade_json(LOESCH_KUNDEN, []))
     hidden = f"<input type=hidden name=csrf value='{e(ANFRAGE.csrf)}'>"
     knoepfe = (("jetzt", "/jetzt", "Jetzt abgleichen", "primary"), ("probe", "/probe", "Probelauf (schreibt nichts)", ""),
                ("vollprobe", "/vollprobe", "Alles Alte – Probelauf", ""), ("voll", "/voll", "Alles Alte holen", ""),
@@ -329,8 +336,8 @@ def dashboard_seite() -> bytes:
 {kachel("Geldbewegungen", str(len(a["transaktionen"])), "", "bis 5 Jahre zurück", "/auszahlungen")}
 {kachel("Auszahlungen", str(len(a["auszahlungen"])), "", "aufs Bankkonto", "/auszahlungen")}
 {kachel("Gebühren-Belege", str(len(belege)), "", f"je Monat in Haben › Belege, zusammen {euro(sum(d.get('summe', 0) for d in belege))}")}
-{kachel("Kontolöschungen", str(len(loesch)), "warn" if bekannte else "",
-        f"{bekannte} betreffen eigene Kunden" if bekannte else "keine eigenen Kunden betroffen", "/kontoloeschungen")}
+{kachel("Kontolöschungen eigener Kunden", str(bekannte), "warn" if bekannte else "",
+        "seit Beginn; Meldungen zu Fremden unter Kontolöschungen", "/kontoloeschungen")}
 </div>
 <section class=card><h2>Zuletzt übernommen</h2>{verlauf_tabelle(20)}
 <p class=hint>Die letzten 20; mehr unter <a href=/bestellungen/zuletzt>Bestellungen › Zuletzt übernommen</a>.</p></section>""",
@@ -598,7 +605,8 @@ def geld_seite(q: dict) -> bytes:
 {'<p class=hint>Nur die neuesten 2000 angezeigt; alle stehen im JSON.</p>' if len(tx) > 2000 else ''}</section>""", "bestellungen")
 
 
-SEITEN = REITER_PFADE + ("/bestellung", "/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json", "/protokoll.txt")
+SEITEN = REITER_PFADE + ("/bestellung", "/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json", "/protokoll.txt",
+                          "/kontoloeschungen.log")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -744,6 +752,14 @@ class Handler(BaseHTTPRequestHandler):
                 body = "\n".join(LOG).encode()
             return self.antwort(200, body, {"Content-Type": "text/plain; charset=utf-8",
                                             "Content-Disposition": "attachment; filename=ebay-protokoll.txt"})
+        if url.path == "/kontoloeschungen.log":
+            try:
+                with open(LOESCH_ALLE, "rb") as f:
+                    body = f.read()
+            except OSError:
+                body = b""
+            return self.antwort(200, body, {"Content-Type": "text/plain; charset=utf-8",
+                                            "Content-Disposition": "attachment; filename=ebay-kontoloeschungen.log"})
         if url.path == "/archiv.json":
             body = json.dumps(lade_archiv(), indent=1, ensure_ascii=False).encode()
             return self.antwort(200, body, {"Content-Type": "application/json; charset=utf-8",
