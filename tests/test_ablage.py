@@ -70,7 +70,7 @@ class Ablage(unittest.TestCase):
         self.assertEqual(FakeIMAP.server[0], ("imap.example.de", 993))
 
     def test_imap_server_aus_smtp(self):
-        self.assertEqual(mail.imap_server({"mail_server": "smtp.ionos.de"}), "imap.ionos.de")
+        self.assertEqual(mail.imap_server({"mail_server": "smtp.example.de"}), "imap.example.de")
 
     def test_ohne_ordner_kein_imap(self):
         self.cfg["mail_ordner"] = ""
