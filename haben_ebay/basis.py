@@ -64,6 +64,7 @@ DEFAULTS = {
     "intervall_minuten": 15,
     "rueckblick_tage": 30,
     "nur_ab": "",
+    "haben_token_bis": "",  # Ablauf des Haben-API-Tokens (JJJJ-MM-TT), steht in Haben bei den API-Tokens; für die Erinnerung
     "zahlungen_an": False,  # Geldbewegungen und Auszahlungen an Haben liefern (REST-Import, Haben ab 0.12)
     "zahlungen_kennung": "ebay",  # Kennung der Quelle in Haben (externalAccountId)
     "passwort_hash": "",

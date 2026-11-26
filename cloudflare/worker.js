@@ -18,6 +18,10 @@ const PFAD = "/ebay/konto-loeschung";
 const ABHOLEN = "/abholen";
 const MAX_BYTES = 65536;
 const MAX_JE_ABRUF = 500;
+// Holt haben-ebay lange nichts ab (NAS aus, Dienst entfernt), räumt der Worker selbst auf, damit die Datenbank
+// nie vollläuft (kostenlos höchstens 500 MB, bei ~1 MB am Tag reicht ein Jahr sicher).
+const AUFBEWAHREN_TAGE = 365;
+const AUFRAEUMEN_JEDE = 1000; // nur jede 1000. Meldung prüft das Alter, das spart Lesevorgänge
 let tabelleDa = false;
 
 const json = (status, daten) =>
@@ -60,7 +64,11 @@ async function meldungAnnehmen(request, env) {
   // Nur Kontolöschungen ablegen; alles andere bestätigen und verwerfen
   if (nachricht?.metadata?.topic !== "MARKETPLACE_ACCOUNT_DELETION") return json(204);
   await tabelle(env);
-  await env.DB.prepare("INSERT INTO meldungen (eingang, nachricht) VALUES (?, ?)").bind(new Date().toISOString(), text).run();
+  const neu = await env.DB.prepare("INSERT INTO meldungen (eingang, nachricht) VALUES (?, ?)").bind(new Date().toISOString(), text).run();
+  if (neu.meta.last_row_id % AUFRAEUMEN_JEDE === 0) {
+    const grenze = new Date(Date.now() - AUFBEWAHREN_TAGE * 86400000).toISOString();
+    await env.DB.prepare("DELETE FROM meldungen WHERE eingang < ?").bind(grenze).run();
+  }
   return json(204); // eBay erwartet 200, 201, 202 oder 204, sonst wiederholt es die Meldung
 }
 

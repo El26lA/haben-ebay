@@ -80,13 +80,16 @@ class Web(unittest.TestCase):
         self.anmelden()
         csrf = next(iter(web.SITZUNGEN.values()))["csrf"]
         antwort = self.op.open(self.base + "/einstellungen", urllib.parse.urlencode(
-            {"csrf": csrf, "intervall_minuten": "20", "rueckblick_tage": "30", "steuersatz": "0", "haben_url": "http://127.0.0.1:9/api/v1"}).encode())
+            {"csrf": csrf, "intervall_minuten": "20", "rueckblick_tage": "30", "steuersatz": "0", "haben_url": "http://127.0.0.1:9/api/v1",
+             "haben_token_bis": "2027-11-21"}).encode())
         self.assertEqual(antwort.url, self.base + "/einstellungen")
         seite = antwort.read().decode()
         self.assertIn("<dialog open class=fenster", seite)  # Fenster mit „OK“
         self.assertIn("<form method=dialog", seite)
         self.assertIn("eben neu gelesen", seite)
         self.assertIn("<td>Intervall</td><td>20 Minuten</td>", seite)
+        self.assertIn("<td>API-Token gültig bis</td><td>21.11.2027</td>", seite)
+        self.assertIn("<small>Haben-Token</small>", self.op.open(self.base + "/").read().decode())
         self.assertIn("Kleinunternehmer", seite)
         self.assertEqual(basis.lade_config()["intervall_minuten"], 20)
         self.assertNotIn("<dialog", self.op.open(self.base + "/einstellungen").read().decode())  # nur einmal
@@ -205,6 +208,19 @@ class Mail(unittest.TestCase):
         mail.lauf_pruefen("0 Fehler", False)
         time.sleep(0.5)
         self.assertEqual(len(self.smtp.mails), 1)
+
+    def test_ablauf_des_haben_tokens_auch_bei_pause(self):
+        import datetime as dt
+        cfg = basis.lade_config()
+        cfg.update(aktiv=False, haben_token_bis=(dt.date.today() + dt.timedelta(days=20)).isoformat())
+        basis.speichere_config(cfg)
+        mail.fristen_pruefen(basis.lade_config())
+        self.warten(1)
+        mail.fristen_pruefen(basis.lade_config())  # gedrosselt: wöchentlich
+        time.sleep(0.5)
+        self.assertEqual(len(self.smtp.mails), 1)
+        self.assertIn("Haben-Token", self.smtp.mails[0]["text"])
+        self.assertIsNone(mail.haben_token_rest({"haben_token_bis": ""}))
 
     def test_drei_fehllaeufe_ergeben_eine_mail(self):
         basis.STATUS["fehler_in_folge"] = 0

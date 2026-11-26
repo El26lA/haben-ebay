@@ -273,6 +273,19 @@ def ebay_stand(cfg: dict) -> tuple[str, str, str]:
     return f"noch {tage} Tage", "warn" if tage < 30 else "ok", f"verbunden bis {bis}" + (" – bitte neu verbinden" if tage < 30 else "")
 
 
+def token_stand(cfg: dict) -> tuple[str, str, str]:
+    """Haben-Token als (Wert, Klasse, Erklärung) für die Kachel"""
+    if not cfg["haben_token"]:
+        return "fehlt", "bad", "unter Einstellungen eintragen"
+    rest = haben_token_rest(cfg)
+    if rest is None:
+        return "gesetzt", "warn", "Ablaufdatum unter Einstellungen eintragen"
+    bis = datum_de(cfg["haben_token_bis"])
+    if rest < 0:
+        return "abgelaufen", "bad", f"seit {bis} – neues Token anlegen"
+    return f"noch {rest} Tage", "warn" if rest < 30 else "ok", f"gültig bis {bis}" + (" – bitte erneuern" if rest < 30 else "")
+
+
 def verlauf_tabelle(anzahl: int) -> str:
     zeilen = "".join(
         f"<tr><td>{e(z)}</td><td>{e(o)}</td><td class={'ok' if a == 'neu' else 'bad' if a in ('fehler', 'achtung') else ''}>"
@@ -326,6 +339,7 @@ def dashboard_seite() -> bytes:
 {kachel("Nächster Lauf", n_wert, "", n_text)}
 {kachel("Letzter Lauf", l_wert, l_kl, l_text, "/protokoll")}
 {kachel("eBay-Konto", ebay_wert, ebay_kl, ebay_text, "/einstellungen")}
+{kachel("Haben-Token", *token_stand(cfg), "/einstellungen")}
 {kachel("Umsatzsteuer", "Kleinunternehmer" if int(cfg["steuersatz"]) == 0 else f"{int(cfg['steuersatz']) // 100} %",
         "", ("§ 19 UStG, " if int(cfg["steuersatz"]) == 0 else "regelbesteuert, ") + "muss zu Haben › Firma passen", "/einstellungen")}
 </div>
@@ -372,6 +386,8 @@ def einstellungen_seite() -> bytes:
 <p class=hint>Haben ab 0.12: Geldbewegungen und Auszahlungen landen als Umsätze im eBay-Konto. Vorher in Haben unter Bank › eBay-Konto › Externe Quelle hinzufügen: Anbieter „haben-ebay“, Kennung wie hier.</p></div>
 <div><label for=hu>API-Adresse</label><input id=hu type=text name=haben_url value='{e(cfg['haben_url'])}'>
 <p class=hint>Im Container: http://app:3000/api/v1</p></div>
+<div><label for=hb>API-Token gültig bis</label><input id=hb type=date name=haben_token_bis value='{e(cfg.get('haben_token_bis', ''))}'>
+<p class=hint>Steht in Haben bei den API-Tokens. Ab 30 Tagen vorher kommt jede Woche eine Mail, in der letzten Woche täglich.</p></div>
 <div><label for=ha>Adresse von Haben</label><input id=ha type=text name=haben_adresse value='{e(cfg['haben_adresse'])}' placeholder='https://haben.example.de'>
 <p class=hint>Wie im Browser. Erlaubt, diese Seite in Haben unter „Eigene Seiten“ einzubetten.</p></div>
 <div><label for=sa>Adresse dieser Seite</label><input id=sa type=text name=seite_adresse value='{e(cfg['seite_adresse'])}' placeholder='https://ebay.example.de'>
@@ -944,6 +960,12 @@ class Handler(BaseHTTPRequestHandler):
                 fehler.append("Datum „Nur ab“ ungültig")
         else:
             cfg["nur_ab"] = ""
+        if "haben_token_bis" in f:
+            hb = f["haben_token_bis"].strip()
+            try:
+                cfg["haben_token_bis"] = dt.date.fromisoformat(hb).isoformat() if hb else ""
+            except ValueError:
+                fehler.append("Datum „API-Token gültig bis“ ungültig")
         if f.get("meldestelle") in ARTEN:
             cfg["meldestelle"] = f["meldestelle"]
         for feld in ("haben_url", "ebay_client_id", "ebay_runame", "haben_adresse", "seite_adresse", "hook_url", "ebay_marktplatz", "cf_url"):
@@ -976,7 +998,8 @@ class Handler(BaseHTTPRequestHandler):
         tabelle = gespeichert_tabelle([
             ("Intervall", f"{neu['intervall_minuten']} Minuten"), ("Rückblick", f"{neu['rueckblick_tage']} Tage"),
             ("Nur Bestellungen ab", datum_de(neu["nur_ab"]) if neu["nur_ab"] else ""), ("Umsatzsteuer", steuer.get(int(neu["steuersatz"]), neu["steuersatz"])),
-            ("Haben API-Token", maskiert(neu["haben_token"])), ("Zahlungen an Haben", "an" if neu.get("zahlungen_an") else "aus"),
+            ("Haben API-Token", maskiert(neu["haben_token"])),
+            ("API-Token gültig bis", datum_de(neu["haben_token_bis"]) if neu.get("haben_token_bis") else ""), ("Zahlungen an Haben", "an" if neu.get("zahlungen_an") else "aus"),
             ("Kennung der Quelle", neu.get("zahlungen_kennung") or ""), ("API-Adresse", neu["haben_url"]), ("Adresse von Haben", neu["haben_adresse"]),
             ("Adresse dieser Seite", neu["seite_adresse"]), ("eBay App ID", neu["ebay_client_id"]), ("eBay Cert ID", maskiert(neu["ebay_client_secret"])),
             ("RuName", neu["ebay_runame"]), ("Marktplatz", neu["ebay_marktplatz"]),

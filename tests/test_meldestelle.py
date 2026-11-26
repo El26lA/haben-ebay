@@ -113,6 +113,13 @@ class Abholen(unittest.TestCase):
             meldestelle.meldestelle_abholen(self.cfg)
         self.assertEqual(len(FalscherWorker.ablage), 2)
 
+    def test_auch_bei_pausiertem_abgleich_abholen(self):
+        from haben_ebay import abgleich
+        self.cfg["aktiv"] = False
+        abgleich.pausiert(self.cfg)
+        self.assertEqual(kontoloeschung.loesch_anzahl(), 2)
+        self.assertEqual(FalscherWorker.ablage, {})
+
     def test_offener_port_abholen_tut_nichts(self):
         self.cfg["meldestelle"] = "port"
         self.assertEqual(meldestelle.meldestelle_abholen(self.cfg), "")

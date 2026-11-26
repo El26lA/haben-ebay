@@ -28,7 +28,7 @@ from .bestellung import *  # noqa: F403
 from .ebay import *  # noqa: F403
 from .gebuehren import gebuehren_abgleich
 from .zahlungen import zahlungen_abgleich
-from .mail import lauf_pruefen
+from .mail import fristen_pruefen, lauf_pruefen
 from .bewertungen import bewertungen_abgleich
 from .meldestelle import meldestelle_abholen
 
@@ -164,6 +164,8 @@ def worker() -> None:
             STATUS["laeuft"] = False
             STATUS["fortschritt"] = ""
             STATUS["letzter_lauf"] = dt.datetime.now()
+        else:
+            pausiert(cfg)
         bis = cfg.get("ebay_refresh_bis") or 0
         if bis and (bis - time.time()) < 30 * 86400 and erinnert != dt.date.today():
             log(f"ACHTUNG: eBay-Verbindung läuft in {int((bis - time.time()) // 86400)} Tagen ab – neu verbinden")
@@ -171,6 +173,20 @@ def worker() -> None:
         WECKER.wait(max(1, int(cfg["intervall_minuten"])) * 60)
         WECKER.clear()
 
+
+
+def pausiert(cfg: dict) -> None:
+    """Auch bei pausiertem Abgleich: Kontolöschungen beim Worker abholen (sonst wächst seine Datenbank) und Fristen melden."""
+    try:
+        text = meldestelle_abholen(cfg)
+        if text and text != "Kontolöschungen: nichts Neues":
+            log(f"Abgleich pausiert, nur abgeholt: {text}")
+    except Fehler as e:
+        log(f"FEHLER Meldestelle (Cloudflare): {e}")
+    try:
+        fristen_pruefen(cfg)
+    except Exception as e:
+        log(f"Benachrichtigung: {type(e).__name__}: {e}")
 
 
 def anstossen(art: str) -> None:

@@ -136,6 +136,29 @@ def lauf_pruefen(ergebnis: str, fehlgeschlagen: bool) -> None:
                f"Die letzten {STATUS['fehler_in_folge']} Läufe des eBay-Abgleichs hatten Fehler.\n\nLetztes Ergebnis:\n{ergebnis}\n\n"
                "Häufige Ursachen: Haben-API-Token abgelaufen oder widerrufen, eBay-Verbindung abgelaufen, NAS ohne Internet.\n"
                "Details im Protokoll auf der eBay-Seite.", 24)
+    fristen_pruefen(cfg)
+
+
+def haben_token_rest(cfg: dict) -> int | None:
+    """Tage bis zum Ablauf des Haben-Tokens laut Einstellung, None ohne Datum"""
+    try:
+        return (dt.date.fromisoformat(cfg.get("haben_token_bis") or "") - dt.date.today()).days
+    except ValueError:
+        return None
+
+
+def fristen_pruefen(cfg: dict) -> None:
+    """Ablaufende eBay-Freigabe und Haben-Token melden; läuft auch, wenn der Abgleich pausiert ist."""
+    rest_token = haben_token_rest(cfg)
+    if rest_token is not None and rest_token < 30:
+        datum = dt.date.fromisoformat(cfg["haben_token_bis"]).strftime("%d.%m.%Y")
+        melden("haben_token_ablauf", f"Haben-Token läuft in {max(0, rest_token)} Tagen ab" if rest_token >= 0 else "Haben-Token ist abgelaufen",
+               f"Das API-Token, mit dem der eBay-Abgleich in Haben schreibt, gilt bis {datum}.\n\n"
+               "In Haben unter Einstellungen › KI-Assistenten und API ein neues Token mit denselben Rechten anlegen "
+               "(höchste Gültigkeit), auf der eBay-Seite unter Einstellungen › Anbindung an Haben eintragen und das neue "
+               "Ablaufdatum dazu. Danach das alte Token in Haben widerrufen.\n"
+               "Ohne gültiges Token kommen keine Rechnungsentwürfe, Gebührenbelege und Zahlungen mehr in Haben an.",
+               24 if rest_token < 7 else 24 * 7)
     bis = cfg.get("ebay_refresh_bis") or 0
     rest = (bis - time.time()) / 86400 if bis else None
     if rest is not None and rest < 30:
