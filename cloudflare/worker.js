@@ -18,10 +18,12 @@ const PFAD = "/ebay/konto-loeschung";
 const ABHOLEN = "/abholen";
 const MAX_BYTES = 65536;
 const MAX_JE_ABRUF = 500;
-// Holt haben-ebay lange nichts ab (NAS aus, Dienst entfernt), räumt der Worker selbst auf, damit die Datenbank
-// nie vollläuft (kostenlos höchstens 500 MB, bei ~1 MB am Tag reicht ein Jahr sicher).
-const AUFBEWAHREN_TAGE = 365;
-const AUFRAEUMEN_JEDE = 1000; // nur jede 1000. Meldung prüft das Alter, das spart Lesevorgänge
+// Holt haben-ebay lange nichts ab (NAS aus, Dienst entfernt), räumt der Worker selbst auf: Keine Meldung bleibt
+// länger als 3 Monate hier. 88 Tage plus höchstens einen Tag bis zum nächsten Aufräumen sind auch über den
+// Februar hinweg weniger als 3 Monate. Aufgeräumt wird täglich (Cron-Trigger, scheduled) und zusätzlich bei
+// jeder 1000. Meldung, falls kein Cron-Trigger eingerichtet ist.
+const AUFBEWAHREN_TAGE = 88;
+const AUFRAEUMEN_JEDE = 1000;
 let tabelleDa = false;
 
 const json = (status, daten) =>
@@ -65,11 +67,14 @@ async function meldungAnnehmen(request, env) {
   if (nachricht?.metadata?.topic !== "MARKETPLACE_ACCOUNT_DELETION") return json(204);
   await tabelle(env);
   const neu = await env.DB.prepare("INSERT INTO meldungen (eingang, nachricht) VALUES (?, ?)").bind(new Date().toISOString(), text).run();
-  if (neu.meta.last_row_id % AUFRAEUMEN_JEDE === 0) {
-    const grenze = new Date(Date.now() - AUFBEWAHREN_TAGE * 86400000).toISOString();
-    await env.DB.prepare("DELETE FROM meldungen WHERE eingang < ?").bind(grenze).run();
-  }
+  if (neu.meta.last_row_id % AUFRAEUMEN_JEDE === 0) await aufraeumen(env);
   return json(204); // eBay erwartet 200, 201, 202 oder 204, sonst wiederholt es die Meldung
+}
+
+async function aufraeumen(env) {
+  await tabelle(env);
+  const grenze = new Date(Date.now() - AUFBEWAHREN_TAGE * 86400000).toISOString();
+  await env.DB.prepare("DELETE FROM meldungen WHERE eingang < ?").bind(grenze).run();
 }
 
 async function abholen(env) {
@@ -112,5 +117,8 @@ export default {
       if (request.method === "POST") return loeschen(request, env);
     }
     return json(404);
+  },
+  async scheduled(event, env) {
+    await aufraeumen(env);
   },
 };
