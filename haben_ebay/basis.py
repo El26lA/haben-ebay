@@ -152,7 +152,7 @@ def _anhaengen(pfad: str, zeile: str) -> None:
     if not DAUERHAFT["an"]:
         return
     try:
-        with _DATEI_LOCK, open(pfad, "a", encoding="utf-8") as f:
+        with _DATEI_LOCK, open(os.open(pfad, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), "a", encoding="utf-8") as f:
             f.write(zeile.replace("\n", " ") + "\n")
     except OSError:
         pass  # das Protokoll darf den Dienst nie anhalten
@@ -180,6 +180,11 @@ def protokoll_dauerhaft() -> None:
         except (ValueError, TypeError):
             pass
     DAUERHAFT["an"] = True
+    for pfad in (PROTOKOLL_FILE, VERLAUF_FILE):  # enthalten Namen von Käufern: nur für den Dienst, wie die übrigen Daten
+        try:
+            os.chmod(pfad, 0o600)
+        except OSError:
+            pass
     for zeile in alt_log:
         LOG.append(zeile)
         _anhaengen(PROTOKOLL_FILE, zeile)
