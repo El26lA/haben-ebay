@@ -46,10 +46,52 @@ class Web(unittest.TestCase):
         self.assertEqual(fehler.exception.code, 401)
 
     def test_angemeldet_bleiben_ueberlebt_neustart(self):
-        self.assertIn("Alle eBay-Bestellungen", self.anmelden())
+        self.assertIn("<small>Abgleich</small>", self.anmelden())
         web.SITZUNGEN.clear()
         web.sitzungen_laden()
-        self.assertIn("Alle eBay-Bestellungen", self.op.open(self.base + "/").read().decode())
+        self.assertIn("<small>Abgleich</small>", self.op.open(self.base + "/").read().decode())
+
+    def test_reiter_und_seiten(self):
+        start = self.anmelden()
+        for pfad, titel in (("/", "Dashboard"), ("/bestellungen", "Bestellungen"), ("/einstellungen", "Einstellungen"),
+                            ("/kontoloeschungen", "Kontolöschungen"), ("/protokoll", "Protokoll")):
+            self.assertIn(f"<a href='{pfad}' class=''>{titel}</a>" if pfad != "/" else f"<a href='/' class='an'>{titel}</a>", start)
+        self.assertIn("<small>Abgleich</small><b>pausiert</b>", start)
+        self.assertIn("<small>Nächster Lauf</small>", start)
+        self.assertIn("<small>eBay-Konto</small><b>nicht verbunden</b>", start)
+        self.assertIn("<small>Umsatzsteuer</small>", start)
+        self.assertIn("<small>Letzter Lauf</small>", start)
+        self.assertIn("Zuletzt übernommen", start)
+        self.assertIn("title='Probelauf: zeigt", start)
+        self.assertNotIn("name=intervall_minuten", start)  # Einstellungen nur im eigenen Reiter
+        einst = self.op.open(self.base + "/einstellungen").read().decode()
+        for feld in ("intervall_minuten", "rueckblick_tage", "nur_ab", "steuersatz", "haben_token", "ebay_client_id", "mail_server"):
+            self.assertIn(f"name={feld}", einst)
+        self.assertIn("eBay-Konto verbinden", einst)
+        self.assertIn("<a href='/einstellungen' class='an'>", einst)
+        self.assertIn("Meldestelle im eBay-Entwicklerportal", self.op.open(self.base + "/kontoloeschungen").read().decode())
+        self.assertIn("<h2>Protokoll</h2>", self.op.open(self.base + "/protokoll").read().decode())
+        best = self.op.open(self.base + "/bestellungen").read().decode()
+        for ziel in ("/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json"):
+            self.assertIn(f"href={ziel}>", best)
+        self.assertIn("<a href='/bestellungen' class='an'>", self.op.open(self.base + "/auszahlungen").read().decode())
+
+    def test_speichern_fuehrt_zurueck_zu_den_einstellungen(self):
+        self.anmelden()
+        csrf = next(iter(web.SITZUNGEN.values()))["csrf"]
+        antwort = self.op.open(self.base + "/einstellungen", urllib.parse.urlencode(
+            {"csrf": csrf, "intervall_minuten": "20", "rueckblick_tage": "30", "steuersatz": "0", "haben_url": "http://127.0.0.1:9/api/v1"}).encode())
+        self.assertEqual(antwort.url, self.base + "/einstellungen")
+        self.assertIn("Gespeichert", antwort.read().decode())
+        self.assertEqual(basis.lade_config()["intervall_minuten"], 20)
+
+    def test_thema_hell_grau_dunkel(self):
+        self.anmelden()
+        seite = self.op.open(self.base + "/thema?t=grau&z=%2Fprotokoll")
+        self.assertEqual(seite.url, self.base + "/protokoll")
+        self.assertIn("<html lang=de data-thema=grau>", seite.read().decode())
+        self.assertEqual(self.op.open(self.base + "/thema?t=dunkel&z=https%3A%2F%2Fboese.example").url, self.base + "/")
+        self.assertIn("<html lang=de><head>", self.op.open(self.base + "/thema?t=auto&z=%2F").read().decode())  # wieder nach System
 
     def test_ohne_bleiben_nicht_gespeichert(self):
         self.anmelden(bleiben="")
