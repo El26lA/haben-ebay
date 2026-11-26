@@ -93,8 +93,12 @@ GEBUEHR_FILE = os.path.join(DATA_DIR, "gebuehren.json")
 MELDUNG_FILE = os.path.join(DATA_DIR, "meldungen.json")  # Schlüssel → Zeitpunkt der letzten Mail (nicht zu oft melden)  # "JJJJ-MM" → {"beleg", "summe", "posten"}: schon an Haben
 HOOK_PFAD = "/ebay/konto-loeschung"
 LOESCH_MAX = 2000  # die Meldestelle ist öffentlich: Liste begrenzen
-LOG = collections.deque(maxlen=400)
-VERLAUF = collections.deque(maxlen=300)  # (zeit, orderId, ergebnis)
+LOG = collections.deque(maxlen=1000)  # Anzeige; mit protokoll_dauerhaft() steht alles in PROTOKOLL_FILE
+VERLAUF = collections.deque(maxlen=300)  # (zeit, orderId, ergebnis, text), neueste zuerst
+PROTOKOLL_FILE = os.path.join(DATA_DIR, "protokoll.log")  # jede Protokollzeile, nur anhängen, nie gekürzt
+VERLAUF_FILE = os.path.join(DATA_DIR, "verlauf.log")  # „Zuletzt übernommen“, je Zeile ein JSON-Eintrag, nur anhängen
+DAUERHAFT = {"an": False}  # nur der Dienst selbst schreibt die Dateien, nicht Tests oder Dienste, die das Paket mitnutzen
+_DATEI_LOCK = threading.Lock()
 STATUS = {"letzter_lauf": None, "letztes_ergebnis": "noch nicht gelaufen", "laeuft": False}
 WECKER = threading.Event()
 
@@ -144,9 +148,57 @@ def speichere_json(pfad: str, daten) -> None:
 
 
 
+def _anhaengen(pfad: str, zeile: str) -> None:
+    if not DAUERHAFT["an"]:
+        return
+    try:
+        with _DATEI_LOCK, open(pfad, "a", encoding="utf-8") as f:
+            f.write(zeile.replace("\n", " ") + "\n")
+    except OSError:
+        pass  # das Protokoll darf den Dienst nie anhalten
+
+
+def letzte_zeilen(pfad: str, n: int) -> list[str]:
+    try:
+        with open(pfad, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 600 * n))
+            return f.read().decode("utf-8", "replace").splitlines()[-n:]
+    except OSError:
+        return []
+
+
+def protokoll_dauerhaft() -> None:
+    """Beim Start des Dienstes: Protokoll und Verlauf ab jetzt auch in Dateien; die letzten Einträge zurück in die Anzeige"""
+    alt_log, alt_verlauf = list(LOG), list(VERLAUF)
+    LOG.clear()
+    LOG.extend(letzte_zeilen(PROTOKOLL_FILE, LOG.maxlen))
+    VERLAUF.clear()
+    for zeile in letzte_zeilen(VERLAUF_FILE, VERLAUF.maxlen):
+        try:
+            VERLAUF.appendleft(tuple(json.loads(zeile)))
+        except (ValueError, TypeError):
+            pass
+    DAUERHAFT["an"] = True
+    for zeile in alt_log:
+        LOG.append(zeile)
+        _anhaengen(PROTOKOLL_FILE, zeile)
+    for eintrag in reversed(alt_verlauf):
+        VERLAUF.appendleft(eintrag)
+        _anhaengen(VERLAUF_FILE, json.dumps(list(eintrag), ensure_ascii=False))
+
+
+def verlauf(bezug: str, art: str, text: str) -> None:
+    """Eintrag für „Zuletzt übernommen“"""
+    eintrag = (dt.datetime.now().strftime("%d.%m.%Y %H:%M"), bezug, art, text)
+    VERLAUF.appendleft(eintrag)
+    _anhaengen(VERLAUF_FILE, json.dumps(list(eintrag), ensure_ascii=False))
+
+
 def log(msg: str) -> None:
-    zeile = f"{dt.datetime.now().strftime('%d.%m. %H:%M:%S')} {msg}"
+    zeile = f"{dt.datetime.now().strftime('%d.%m.%Y %H:%M:%S')} {msg}"
     LOG.append(zeile)
+    _anhaengen(PROTOKOLL_FILE, zeile)
     try:
         print(zeile, flush=True)
     except UnicodeEncodeError:  # Konsole ohne UTF-8 (etwa Windows): Zeichen ersetzen statt abbrechen

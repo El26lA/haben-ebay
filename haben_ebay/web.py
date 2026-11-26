@@ -120,6 +120,9 @@ nav{max-width:1100px;margin:6px auto 0;padding:0 16px;display:flex;gap:2px;overf
 nav a{padding:9px 14px;text-decoration:none;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}nav a:hover{color:var(--text)}
 nav a.an{color:var(--text);border-bottom-color:var(--accent);font-weight:600}.erklaerung{margin:10px 0 0;padding-left:20px;font-size:12px;color:var(--muted)}
 .unter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.unter .an{border-color:var(--accent);font-weight:600}
+dialog.fenster{position:fixed;inset:0;width:auto;height:auto;max-width:none;max-height:none;margin:0;padding:16px;border:0;z-index:10;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;color:var(--text)}
+dialog.fenster:not([open]){display:none}.fenster .box{margin-top:10vh;width:100%;max-width:560px;max-height:78vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.fenster h2{font-size:18px}.fenster table{margin:10px 0 0}.fenster td:first-child{color:var(--muted);white-space:nowrap}
 """)
 
 
@@ -138,13 +141,27 @@ def seite(titel: str, inhalt: str, reiter: str = "") -> bytes:
     wahl = "".join(f"<a href='/thema?t={k}&amp;z={hier}' class='{'an' if thema == k else ''}'>{t}</a>" for k, t in THEMEN.items())
     abmelden = (f"<form method=post action=/logout><input type=hidden name=csrf value='{e(csrf)}'><button>Abmelden</button></form>" if csrf else "")
     menue = ("<nav>" + "".join(f"<a href='{p}' class='{'an' if r == reiter else ''}'>{t}</a>" for r, p, t in REITER) + "</nav>") if csrf else ""
-    flash = getattr(ANFRAGE, "flash", "")
-    fl = f"<div class=flash>{flash}</div>" if flash else ""
+    fl = fenster(getattr(ANFRAGE, "flash", ""))
     return (
         f"<!doctype html><html lang=de{f' data-thema={thema}' if thema else ''}><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
         f"<title>{e(titel)}</title><style>{CSS}</style></head><body><header><div class=kopf><a class=marke href=/>eBay → Haben</a>"
         f"<div class=rechts>{wahl}{abmelden}</div></div>{menue}</header><main>{fl}{inhalt}</main></body></html>"
     ).encode()
+
+
+def fenster(meldung: str) -> str:
+    """Rückmeldung nach dem Speichern oder Starten als Fenster, das mit „OK“ bestätigt wird"""
+    if not meldung:
+        return ""
+    titel = "Achtung" if "class=bad" in meldung else "Erledigt"
+    return (f"<dialog open class=fenster aria-labelledby=ft><div class=box><h2 id=ft class={'bad' if titel == 'Achtung' else 'ok'}>{titel}</h2>"
+            f"<div>{meldung}</div><form method=dialog class=actions><button class=primary>OK</button></form></div></dialog>")
+
+
+def gespeichert_tabelle(werte: list[tuple[str, str]]) -> str:
+    """Was jetzt in der Einstellungsdatei steht, frisch von der Platte gelesen"""
+    zeilen = "".join(f"<tr><td>{e(k)}</td><td>{e(v) if v != '' else '<span class=hint>leer</span>'}</td></tr>" for k, v in werte)
+    return f"<p class=hint>So steht es jetzt in der gespeicherten Einstellungsdatei (eben neu gelesen):</p><table>{zeilen}</table>"
 
 
 def login_seite(meldung: str = "") -> bytes:
@@ -230,7 +247,7 @@ def verlauf_tabelle(anzahl: int) -> str:
         f"<tr><td>{e(z)}</td><td>{e(o)}</td><td class={'ok' if a == 'neu' else 'bad' if a in ('fehler', 'achtung') else ''}>"
         f"{ {'neu': 'angelegt', 'probe': 'Probe', 'fehler': 'Fehler', 'achtung': 'Achtung'}.get(a, e(a)) }</td><td>{e(t)}</td></tr>"
         for z, o, a, t in list(VERLAUF)[:anzahl]
-    ) or "<tr><td colspan=4 class=hint>Seit dem letzten Neustart nichts übernommen.</td></tr>"
+    ) or "<tr><td colspan=4 class=hint>Noch nichts übernommen.</td></tr>"
     return f"<div style='overflow-x:auto'><table><tr><th>Zeit</th><th>Bestellung</th><th>Ergebnis</th><th>Details</th></tr>{zeilen}</table></div>"
 
 
@@ -293,7 +310,7 @@ def dashboard_seite() -> bytes:
         f"{bekannte} betreffen eigene Kunden" if bekannte else "keine eigenen Kunden betroffen", "/kontoloeschungen")}
 </div>
 <section class=card><h2>Zuletzt übernommen</h2>{verlauf_tabelle(20)}
-<p class=hint>Die letzten 20 seit dem Neustart; alle unter <a href=/bestellungen/zuletzt>Bestellungen › Zuletzt übernommen</a>.</p></section>""",
+<p class=hint>Die letzten 20; mehr unter <a href=/bestellungen/zuletzt>Bestellungen › Zuletzt übernommen</a>.</p></section>""",
                  "dashboard")
 
 
@@ -359,7 +376,8 @@ def loeschungen_seite() -> bytes:
 def protokoll_seite() -> bytes:
     logtext = e("\n".join(list(LOG)[::-1])) or "–"
     return seite("Protokoll – eBay → Haben", f"""<section class=card><h2>Protokoll</h2>
-<p class=hint>Neueste oben, die letzten {LOG.maxlen} Zeilen seit dem Neustart. Ältere: <code>docker compose logs ebay</code>.</p>
+<p class=hint>Neueste oben, die letzten {LOG.maxlen} Zeilen. Alles bleibt dauerhaft gespeichert, auch über einen Neustart hinweg.</p>
+<div class=actions style='margin:0 0 12px'><a class=btn href=/protokoll.txt>Ganzes Protokoll herunterladen</a></div>
 <pre style='max-height:none'>{logtext}</pre></section>""", "protokoll")
 
 
@@ -376,7 +394,7 @@ def bestell_menue(hier: str) -> str:
 def zuletzt_seite() -> bytes:
     return seite("Zuletzt übernommen – eBay → Haben", f"""{bestell_menue("/bestellungen/zuletzt")}
 <section class=card><h2>Zuletzt übernommen</h2>{verlauf_tabelle(300)}
-<p class=hint>Was die Läufe seit dem letzten Neustart angelegt, geprüft oder gemeldet haben (höchstens 300).</p></section>""", "bestellungen")
+<p class=hint>Was die Läufe angelegt, geprüft oder gemeldet haben, die letzten 300 (bleiben über einen Neustart erhalten).</p></section>""", "bestellungen")
 
 
 # ── Verlauf aller Bestellungen ───────────────────────────────────────────────────────────────────────────────────
@@ -551,7 +569,7 @@ def geld_seite(q: dict) -> bytes:
 {'<p class=hint>Nur die neuesten 2000 angezeigt; alle stehen im JSON.</p>' if len(tx) > 2000 else ''}</section>""", "bestellungen")
 
 
-SEITEN = REITER_PFADE + ("/bestellung", "/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json")
+SEITEN = REITER_PFADE + ("/bestellung", "/auszahlungen", "/bestellungen/zuletzt", "/bestellungen.csv", "/archiv.json", "/protokoll.txt")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -695,6 +713,14 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/bestellungen.csv":
             return self.antwort(200, verlauf_csv(q), {"Content-Type": "text/csv; charset=utf-8",
                                                       "Content-Disposition": "attachment; filename=ebay-bestellungen.csv"})
+        if url.path == "/protokoll.txt":
+            try:
+                with open(PROTOKOLL_FILE, "rb") as f:
+                    body = f.read()
+            except OSError:
+                body = "\n".join(LOG).encode()
+            return self.antwort(200, body, {"Content-Type": "text/plain; charset=utf-8",
+                                            "Content-Disposition": "attachment; filename=ebay-protokoll.txt"})
         if url.path == "/archiv.json":
             body = json.dumps(lade_archiv(), indent=1, ensure_ascii=False).encode()
             return self.antwort(200, body, {"Content-Type": "application/json; charset=utf-8",
@@ -833,19 +859,26 @@ class Handler(BaseHTTPRequestHandler):
         if (cfg["mail_aktiv"] or test) and not (cfg["mail_server"] and cfg["mail_empfaenger"]):
             fehler.append("SMTP-Server und Empfänger angeben")
         if fehler:
-            return "<span class=bad>Nicht gespeichert: " + e("; ".join(fehler)) + "</span>"
+            return "<p class=bad>Nicht gespeichert. Bitte korrigieren:</p><ul>" + "".join(f"<li>{e(x)}</li>" for x in fehler) + "</ul>"
         speichere_config(cfg)
         log("Mail-Einstellungen gespeichert")
+        neu = lade_config()
+        tabelle = gespeichert_tabelle([
+            ("Benachrichtigungen", "an" if neu["mail_aktiv"] else "aus"), ("SMTP-Server", neu["mail_server"]), ("Port", str(neu["mail_port"])),
+            ("Verschlüsselung", neu["mail_sicherheit"]), ("Benutzer", neu["mail_benutzer"]), ("Passwort", maskiert(neu.get("mail_passwort", ""))),
+            ("Absender", neu["mail_absender"]), ("Empfänger", neu["mail_empfaenger"]), ("Ordner für gesendete Mails", neu["mail_ordner"]),
+            ("IMAP-Server", neu["mail_imap_server"])])
         if not test:
-            return "Mail-Einstellungen gespeichert" + ("" if cfg["mail_aktiv"] else " (Benachrichtigungen aus)") + "."
+            return "<p>Mail-Einstellungen gespeichert.</p>" + tabelle
         try:
             mail_senden(cfg, "Testmail", "Diese Testmail zeigt, dass die Benachrichtigungen des eBay-Abgleichs ankommen.\n\n"
                         f"Server {cfg['mail_server']}:{cfg['mail_port']} ({cfg['mail_sicherheit']}), Benutzer {cfg['mail_benutzer'] or '–'}.")
             log(f"Testmail an {cfg['mail_empfaenger']} gesendet")
-            return f"<span class=ok>Gespeichert. Testmail an {e(cfg['mail_empfaenger'])} gesendet – bitte Postfach (und Spam-Ordner) prüfen.</span>"
+            return (f"<p class=ok>Gespeichert. Testmail an {e(cfg['mail_empfaenger'])} gesendet – bitte Postfach (und Spam-Ordner) prüfen.</p>"
+                    + tabelle)
         except Fehler as ex:
             log(f"Testmail fehlgeschlagen: {ex}")
-            return f"<span class=bad>Gespeichert, aber Testmail fehlgeschlagen: {e(ex)}</span>"
+            return f"<p class=bad>Gespeichert, aber Testmail fehlgeschlagen: {e(ex)}</p>{tabelle}"
 
     def einstellungen(self, cfg: dict, f: dict) -> str:
         fehler = []
@@ -889,16 +922,25 @@ class Handler(BaseHTTPRequestHandler):
         if not cfg["haben_url"].startswith(("http://", "https://")):
             fehler.append("API-Adresse muss mit http:// oder https:// beginnen")
         if fehler:
-            return "<span class=bad>Nicht gespeichert: " + e("; ".join(fehler)) + "</span>"
+            return "<p class=bad>Nicht gespeichert. Bitte korrigieren:</p><ul>" + "".join(f"<li>{e(x)}</li>" for x in fehler) + "</ul>"
         speichere_config(cfg)
         _access.update(token="", bis=0.0)
         log("Einstellungen gespeichert")
+        neu = lade_config()
+        steuer = {0: "Kleinunternehmer (§ 19 UStG)", 1900: "regelbesteuert, 19 %", 700: "regelbesteuert, 7 %"}
+        tabelle = gespeichert_tabelle([
+            ("Intervall", f"{neu['intervall_minuten']} Minuten"), ("Rückblick", f"{neu['rueckblick_tage']} Tage"),
+            ("Nur Bestellungen ab", datum_de(neu["nur_ab"]) if neu["nur_ab"] else ""), ("Umsatzsteuer", steuer.get(int(neu["steuersatz"]), neu["steuersatz"])),
+            ("Haben API-Token", maskiert(neu["haben_token"])), ("Zahlungen an Haben", "an" if neu.get("zahlungen_an") else "aus"),
+            ("Kennung der Quelle", neu.get("zahlungen_kennung") or ""), ("API-Adresse", neu["haben_url"]), ("Adresse von Haben", neu["haben_adresse"]),
+            ("Adresse dieser Seite", neu["seite_adresse"]), ("eBay App ID", neu["ebay_client_id"]), ("eBay Cert ID", maskiert(neu["ebay_client_secret"])),
+            ("RuName", neu["ebay_runame"]), ("Marktplatz", neu["ebay_marktplatz"]), ("Meldestelle", neu["hook_url"])])
         # Verbindung zu Haben gleich prüfen
         try:
             status, data = haben(cfg, "GET", "/rechnungen?" + urllib.parse.urlencode({"externalSource": QUELLE, "limit": 1}))
             if status == 200:
-                return f"Gespeichert. Verbindung zu Haben steht ({data.get('total', 0)} Rechnungen aus eBay)."
+                return f"<p>Einstellungen gespeichert. Verbindung zu Haben steht ({data.get('total', 0)} Rechnungen aus eBay).</p>{tabelle}"
             meldung = (data or {}).get("error", {}).get("message", data) if isinstance(data, dict) else data
-            return f"<span class=bad>Gespeichert, aber Haben antwortet mit {status}: {e(meldung)}</span>"
+            return f"<p class=bad>Gespeichert, aber Haben antwortet mit {status}: {e(meldung)}</p>{tabelle}"
         except Fehler as ex:
-            return "Gespeichert. Haben: " + e(ex)
+            return f"<p>Einstellungen gespeichert.</p><p class=bad>Verbindung zu Haben: {e(ex)}</p>{tabelle}"

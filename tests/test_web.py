@@ -82,8 +82,43 @@ class Web(unittest.TestCase):
         antwort = self.op.open(self.base + "/einstellungen", urllib.parse.urlencode(
             {"csrf": csrf, "intervall_minuten": "20", "rueckblick_tage": "30", "steuersatz": "0", "haben_url": "http://127.0.0.1:9/api/v1"}).encode())
         self.assertEqual(antwort.url, self.base + "/einstellungen")
-        self.assertIn("Gespeichert", antwort.read().decode())
+        seite = antwort.read().decode()
+        self.assertIn("<dialog open class=fenster", seite)  # Fenster mit „OK“
+        self.assertIn("<form method=dialog", seite)
+        self.assertIn("eben neu gelesen", seite)
+        self.assertIn("<td>Intervall</td><td>20 Minuten</td>", seite)
+        self.assertIn("Kleinunternehmer", seite)
         self.assertEqual(basis.lade_config()["intervall_minuten"], 20)
+        self.assertNotIn("<dialog", self.op.open(self.base + "/einstellungen").read().decode())  # nur einmal
+        falsch = self.op.open(self.base + "/einstellungen", urllib.parse.urlencode(
+            {"csrf": csrf, "intervall_minuten": "2", "rueckblick_tage": "30", "haben_url": "http://127.0.0.1:9/api/v1"}).encode()).read().decode()
+        self.assertIn("<h2 id=ft class=bad>Achtung</h2>", falsch)
+        self.assertIn("Nicht gespeichert", falsch)
+        self.assertEqual(basis.lade_config()["intervall_minuten"], 20)
+
+    def test_protokoll_und_verlauf_ueberstehen_neustart(self):
+        basis.LOG.clear()
+        basis.VERLAUF.clear()
+        basis.protokoll_dauerhaft()
+        try:
+            basis.log("vor dem Neustart")
+            basis.verlauf("12-34567-89012", "neu", "Entwurf angelegt")
+            basis.DAUERHAFT["an"] = False  # Neustart: Anzeige leer, Dateien bleiben
+            basis.LOG.clear()
+            basis.VERLAUF.clear()
+            basis.log("beim Start")
+            basis.protokoll_dauerhaft()
+            self.assertTrue(basis.LOG[0].endswith("vor dem Neustart"))
+            self.assertTrue(basis.LOG[-1].endswith("beim Start"))
+            self.assertEqual(basis.VERLAUF[0][1:], ("12-34567-89012", "neu", "Entwurf angelegt"))
+            self.anmelden()
+            self.assertIn("vor dem Neustart", self.op.open(self.base + "/protokoll").read().decode())
+            self.assertIn("12-34567-89012", self.op.open(self.base + "/").read().decode())
+            ganz = self.op.open(self.base + "/protokoll.txt").read().decode()
+            self.assertIn("vor dem Neustart", ganz)
+            self.assertIn("beim Start", ganz)
+        finally:
+            basis.DAUERHAFT["an"] = False
 
     def test_thema_hell_grau_dunkel(self):
         self.anmelden()

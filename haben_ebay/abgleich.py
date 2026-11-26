@@ -75,7 +75,7 @@ def abgleich(schreiben: bool = True, beispiel: str | None = None, voll: bool = F
             speichere_json(ARCHIV_FILE, archiv)
         if art in ("neu", "probe", "fehler", "aktualisiert", "achtung"):
             log(f"{'Probe ' if not schreiben else ''}{oid}: {text}")
-            VERLAUF.appendleft((dt.datetime.now().strftime("%d.%m. %H:%M"), oid, art, text))
+            verlauf(oid, art, text)
         neu += art in ("neu", "probe")
         fehler += art == "fehler"
     ergebnis = f"{len(orders)} Bestellungen geprüft, {neu} {'würden angelegt' if not schreiben else 'neu angelegt'}, {fehler} Fehler"

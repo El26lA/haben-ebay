@@ -225,13 +225,13 @@ def gebuehren_abgleich(cfg: dict, schreiben: bool, voll: bool, transaktionen: li
         pdf, notiz = gebuehrenbeleg(monat, m)
         text = f"{len(m['posten'])} Posten, Summe {euro(m['summe'])}"
         if not schreiben:
-            VERLAUF.appendleft((dt.datetime.now().strftime("%d.%m. %H:%M"), f"Gebühren {monat}", "probe", "würde als Beleg anlegen: " + text))
+            verlauf(f"Gebühren {monat}", "probe", "würde als Beleg anlegen: " + text)
             neu += 1
             continue
         beleg, status = beleg_hochladen(cfg, f"ebay-gebuehren-{monat}.pdf", pdf, monat, notiz)
         erledigt[monat] = {"beleg": beleg.get("id"), "summe": m["summe"], "posten": len(m["posten"])}
         speichere_json(GEBUEHR_FILE, erledigt)
-        VERLAUF.appendleft((dt.datetime.now().strftime("%d.%m. %H:%M"), f"Gebühren {monat}", "neu" if status == 201 else "vorhanden", text))
+        verlauf(f"Gebühren {monat}", "neu" if status == 201 else "vorhanden", text)
         log(f"Gebührenbeleg {monat}: {text}")
         neu += 1
     if schreiben:
